@@ -1,12 +1,13 @@
 name: Daily Block Run
 
 on:
+  pull_request:
   schedule:
     # At the end of every day
     - cron: "0 0 * * *"
 
 env:
-  RANGE_SIZE: 25
+  RANGE_SIZE: 1
 
 jobs:
   run:
@@ -22,35 +23,6 @@ jobs:
       matrix:
         block:
           - 740000
-          - 741000
-          - 742000
-          - 743000
-          - 744000
-          - 745000
-          - 746000
-          - 747000
-          - 748000
-          - 749000
-          - 800000
-          - 800050
-          - 800100
-          - 800150
-          - 800200
-          - 800250
-          - 800300
-          - 800350
-          - 800400
-          - 800450
-          - 900000
-          - 900100
-          - 900200
-          - 900300
-          - 900400
-          - 900500
-          - 900600
-          - 900700
-          - 900800
-          - 900900
         runner:
           - native
           - vm
@@ -89,6 +61,12 @@ jobs:
         with:
           workspaces: "starknet-replay -> target"
           cache-directories: "cairo_native"
+
+      - name: Cache rpc calls
+        uses: actions/cache@v3
+        with:
+          path: starknet-replay/rpc_cache
+          key: cache-${{matrix.block}}-${{matrix.runner}}
 
       - name: Build Cairo Native Runtime Library
         shell: bash
@@ -191,12 +169,3 @@ jobs:
             cat output
             echo EOF
           } >> "$GITHUB_ENV"
-
-      - name: Create Issue
-        if: ${{ failure() }}
-        uses: JasonEtco/create-an-issue@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMIT_SHA: ${{ github.sha }}
-        with:
-          filename: .github/ISSUE_TEMPLATE/daily_failure.md
