@@ -404,24 +404,86 @@ fn build_drop<'ctx>(
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        utils::test::{load_cairo, run_program},
-        values::Value,
-    };
+    use crate::{utils::test::run_sierra_program, values::Value};
+    use cairo_lang_sierra::ProgramParser;
     use pretty_assertions_sorted::assert_eq;
 
     #[test]
     fn test_array_snapshot_deep_clone() {
-        let program = load_cairo! {
-            fn run_test() -> @Array<Array<felt252>> {
-                let mut inputs: Array<Array<felt252>> = ArrayTrait::new();
-                inputs.append(array![1, 2, 3]);
-                inputs.append(array![4, 5, 6]);
+        // fn run_test() -> @Array<Array<felt252>> {
+        //     let mut inputs: Array<Array<felt252>> = ArrayTrait::new();
+        //     inputs.append(array![1, 2, 3]);
+        //     inputs.append(array![4, 5, 6]);
 
-                @inputs
-            }
-        };
-        let result = run_program(&program, "run_test", &[]).return_value;
+        //     @inputs
+        // }
+        let program = ProgramParser::new()
+            .parse(
+                r#"
+            type [2] = Array<[1]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [3] = Snapshot<[2]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [9] = Const<[0], 6> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [8] = Const<[0], 5> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [7] = Const<[0], 4> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [6] = Const<[0], 3> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [5] = Const<[0], 2> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [4] = Const<[0], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = Array<[0]> [storable: true, drop: true, dup: false, zero_sized: false];
+
+            libfunc [3] = array_new<[1]>;
+            libfunc [2] = array_new<[0]>;
+            libfunc [5] = const_as_immediate<[4]>;
+            libfunc [13] = store_temp<[0]>;
+            libfunc [1] = array_append<[0]>;
+            libfunc [6] = const_as_immediate<[5]>;
+            libfunc [7] = const_as_immediate<[6]>;
+            libfunc [14] = store_temp<[1]>;
+            libfunc [0] = array_append<[1]>;
+            libfunc [8] = const_as_immediate<[7]>;
+            libfunc [9] = const_as_immediate<[8]>;
+            libfunc [10] = const_as_immediate<[9]>;
+            libfunc [11] = snapshot_take<[2]>;
+            libfunc [12] = drop<[2]>;
+            libfunc [15] = store_temp<[3]>;
+
+            [3]() -> ([0]); // 0
+            [2]() -> ([1]); // 1
+            [5]() -> ([2]); // 2
+            [13]([2]) -> ([2]); // 3
+            [1]([1], [2]) -> ([3]); // 4
+            [6]() -> ([4]); // 5
+            [13]([4]) -> ([4]); // 6
+            [1]([3], [4]) -> ([5]); // 7
+            [7]() -> ([6]); // 8
+            [13]([6]) -> ([6]); // 9
+            [1]([5], [6]) -> ([7]); // 10
+            [14]([7]) -> ([7]); // 11
+            [0]([0], [7]) -> ([8]); // 12
+            [2]() -> ([9]); // 13
+            [8]() -> ([10]); // 14
+            [13]([10]) -> ([10]); // 15
+            [1]([9], [10]) -> ([11]); // 16
+            [9]() -> ([12]); // 17
+            [13]([12]) -> ([12]); // 18
+            [1]([11], [12]) -> ([13]); // 19
+            [10]() -> ([14]); // 20
+            [13]([14]) -> ([14]); // 21
+            [1]([13], [14]) -> ([15]); // 22
+            [14]([15]) -> ([15]); // 23
+            [0]([8], [15]) -> ([16]); // 24
+            [11]([16]) -> ([17], [18]); // 25
+            [12]([17]) -> (); // 26
+            [15]([18]) -> ([18]); // 27
+            return([18]); // 28
+
+            [0]@0() -> ([3]);
+        "#,
+            )
+            .map_err(|e| e.to_string())
+            .unwrap();
+
+        let result = run_sierra_program(program, &[]).return_value;
 
         assert_eq!(
             result,

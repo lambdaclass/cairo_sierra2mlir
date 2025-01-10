@@ -793,10 +793,11 @@ pub fn get_type_for_variants<'ctx>(
 
 #[cfg(test)]
 mod test {
-    use crate::{metadata::MetadataStorage, types::TypeBuilder, utils::test::load_cairo};
+    use crate::{metadata::MetadataStorage, types::TypeBuilder};
     use cairo_lang_sierra::{
         extensions::core::{CoreLibfunc, CoreType},
         program_registry::ProgramRegistry,
+        ProgramParser,
     };
     use melior::{
         ir::{r#type::IntegerType, Location, Module},
@@ -805,15 +806,23 @@ mod test {
 
     #[test]
     fn enum_type_single_variant_no_i0() {
-        let (_, program) = load_cairo! {
-            enum MyEnum {
-                A: felt252,
-            }
+        // enum MyEnum {
+        //     A: felt252,
+        // }
+        // fn run_program(x: MyEnum) -> MyEnum {
+        //     x
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = Enum<ut@program::program::MyEnum, [0]> [storable: true, drop: true, dup: true, zero_sized: false];
 
-            fn run_program(x: MyEnum) -> MyEnum {
-                x
-            }
-        };
+            libfunc [0] = store_temp<[1]>;
+
+            [0]([0]) -> ([0]); // 0
+            return([0]); // 1
+
+            [0]@0([0]: [1]) -> ([1]);
+        "#).map_err(|e| e.to_string()).unwrap();
 
         let context = Context::new();
         let registry = ProgramRegistry::<CoreType, CoreLibfunc>::new(&program).unwrap();

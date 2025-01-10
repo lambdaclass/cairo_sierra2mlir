@@ -241,29 +241,105 @@ fn build_drop<'ctx>(
 #[cfg(test)]
 mod test {
     use crate::{
-        utils::test::{jit_enum, jit_struct, load_cairo, run_program},
+        utils::test::{jit_enum, jit_struct, run_sierra_program},
         values::Value,
     };
+    use cairo_lang_sierra::ProgramParser;
     use pretty_assertions_sorted::assert_eq;
 
     #[test]
     fn test_nullable_deep_clone() {
-        let program = load_cairo! {
-            use core::array::ArrayTrait;
-            use core::NullableTrait;
+        // use core::array::ArrayTrait;
+        // use core::NullableTrait;
+        // fn run_test() -> @Nullable<Array<felt252>> {
+        //     let mut x = NullableTrait::new(array![1, 2, 3]);
+        //     let x_s = @x;
+        //     let mut y = NullableTrait::deref(x);
+        //     y.append(4);
+        //     x_s
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [1] = Array<[0]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [3] = Nullable<[1]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [4] = Snapshot<[3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [7] = Struct<ut@Tuple, [4]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [13] = Const<[0], 4> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [5] = Struct<ut@core::panics::Panic> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [6] = Struct<ut@Tuple, [5], [1]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [8] = Enum<ut@core::panics::PanicResult::<(@core::nullable::Nullable::<core::array::Array::<core::felt252>>,)>, [7], [6]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [12] = Const<[0], 1764660641818210475137527732331061317596259760618687855268902447379813> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [2] = Box<[1]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [11] = Const<[0], 3> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [10] = Const<[0], 2> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [9] = Const<[0], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
 
-            fn run_test() -> @Nullable<Array<felt252>> {
-                let mut x = NullableTrait::new(array![1, 2, 3]);
-                let x_s = @x;
+            libfunc [7] = array_new<[0]>;
+            libfunc [12] = const_as_immediate<[9]>;
+            libfunc [21] = store_temp<[0]>;
+            libfunc [2] = array_append<[0]>;
+            libfunc [13] = const_as_immediate<[10]>;
+            libfunc [14] = const_as_immediate<[11]>;
+            libfunc [22] = store_temp<[1]>;
+            libfunc [10] = into_box<[1]>;
+            libfunc [9] = nullable_from_box<[1]>;
+            libfunc [15] = snapshot_take<[3]>;
+            libfunc [8] = match_nullable<[1]>;
+            libfunc [16] = branch_align;
+            libfunc [17] = drop<[4]>;
+            libfunc [18] = const_as_immediate<[12]>;
+            libfunc [6] = struct_construct<[5]>;
+            libfunc [5] = struct_construct<[6]>;
+            libfunc [4] = enum_init<[8], 1>;
+            libfunc [23] = store_temp<[8]>;
+            libfunc [3] = unbox<[1]>;
+            libfunc [19] = const_as_immediate<[13]>;
+            libfunc [20] = drop<[1]>;
+            libfunc [1] = struct_construct<[7]>;
+            libfunc [0] = enum_init<[8], 0>;
 
-                let mut y = NullableTrait::deref(x);
-                y.append(4);
+            [7]() -> ([0]); // 0
+            [12]() -> ([1]); // 1
+            [21]([1]) -> ([1]); // 2
+            [2]([0], [1]) -> ([2]); // 3
+            [13]() -> ([3]); // 4
+            [21]([3]) -> ([3]); // 5
+            [2]([2], [3]) -> ([4]); // 6
+            [14]() -> ([5]); // 7
+            [21]([5]) -> ([5]); // 8
+            [2]([4], [5]) -> ([6]); // 9
+            [22]([6]) -> ([6]); // 10
+            [10]([6]) -> ([7]); // 11
+            [9]([7]) -> ([8]); // 12
+            [15]([8]) -> ([9], [10]); // 13
+            [8]([9]) { fallthrough() 26([11]) }; // 14
+            [16]() -> (); // 15
+            [17]([10]) -> (); // 16
+            [7]() -> ([12]); // 17
+            [18]() -> ([13]); // 18
+            [21]([13]) -> ([13]); // 19
+            [2]([12], [13]) -> ([14]); // 20
+            [6]() -> ([15]); // 21
+            [5]([15], [14]) -> ([16]); // 22
+            [4]([16]) -> ([17]); // 23
+            [23]([17]) -> ([17]); // 24
+            return([17]); // 25
+            [16]() -> (); // 26
+            [3]([11]) -> ([18]); // 27
+            [19]() -> ([19]); // 28
+            [22]([18]) -> ([18]); // 29
+            [21]([19]) -> ([19]); // 30
+            [2]([18], [19]) -> ([20]); // 31
+            [20]([20]) -> (); // 32
+            [1]([10]) -> ([21]); // 33
+            [0]([21]) -> ([22]); // 34
+            [23]([22]) -> ([22]); // 35
+            return([22]); // 36
 
-                x_s
-            }
+            [0]@0() -> ([8]);
+        "#).map_err(|e| e.to_string()).unwrap();
 
-        };
-        let result = run_program(&program, "run_test", &[]).return_value;
+        let result = run_sierra_program(program, &[]).return_value;
 
         assert_eq!(
             result,
