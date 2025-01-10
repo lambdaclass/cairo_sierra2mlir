@@ -817,37 +817,50 @@ fn build_wrap_non_zero<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
+    use cairo_lang_sierra::ProgramParser;
     use cairo_vm::Felt252;
 
-    use crate::{
-        context::NativeContext, execution_result::ExecutionResult, executor::JitNativeExecutor,
-        utils::test::load_cairo, OptLevel, Value,
-    };
+    use crate::{utils::test::run_sierra_program, Value};
 
     #[test]
     fn test_trim_some_pos_i8() {
-        let (_, program) = load_cairo!(
-            use core::internal::{OptionRev, bounded_int::BoundedInt};
-            use core::internal::bounded_int;
-            fn main() -> BoundedInt<-128, 126> {
-                let num = match bounded_int::trim::<i8, 0x7f>(1) {
-                    OptionRev::Some(n) => n,
-                    OptionRev::None => 0,
-                };
+        // use core::internal::{OptionRev, bounded_int::BoundedInt};
+        // use core::internal::bounded_int;
+        // fn main() -> BoundedInt<-128, 126> {
+        //     let num = match bounded_int::trim::<i8, 0x7f>(1) {
+        //         OptionRev::Some(n) => n,
+        //         OptionRev::None => 0,
+        //     };
+        //     num
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [0] = i8 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Const<[1], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [1] = BoundedInt<-128, 126> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = Const<[0], 1> [storable: false, drop: false, dup: false, zero_sized: false];
 
-                num
-            }
-        );
-        let ctx = NativeContext::new();
-        let module = ctx.compile(&program, false, None).unwrap();
-        let executor = JitNativeExecutor::from_native_module(module, OptLevel::Default).unwrap();
-        let ExecutionResult {
-            remaining_gas: _,
-            return_value,
-            builtin_stats: _,
-        } = executor
-            .invoke_dynamic(&program.funcs[0].id, &[], None)
-            .unwrap();
+            libfunc [1] = const_as_immediate<[2]>;
+            libfunc [4] = store_temp<[0]>;
+            libfunc [0] = bounded_int_trim<[0], 127>;
+            libfunc [2] = branch_align;
+            libfunc [3] = const_as_immediate<[3]>;
+            libfunc [5] = store_temp<[1]>;
+
+            [1]() -> ([0]); // 0
+            [4]([0]) -> ([0]); // 1
+            [0]([0]) { fallthrough() 7([1]) }; // 2
+            [2]() -> (); // 3
+            [3]() -> ([2]); // 4
+            [5]([2]) -> ([2]); // 5
+            return([2]); // 6
+            [2]() -> (); // 7
+            [5]([1]) -> ([1]); // 8
+            return([1]); // 9
+
+            [0]@0() -> ([1]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        let return_value = run_sierra_program(&program, &[]).return_value;
 
         let Value::BoundedInt { value, range: _ } = return_value else {
             panic!();
@@ -857,28 +870,44 @@ mod test {
 
     #[test]
     fn test_trim_some_neg_i8() {
-        let (_, program) = load_cairo!(
-            use core::internal::{OptionRev, bounded_int::BoundedInt};
-            use core::internal::bounded_int;
-            fn main() -> BoundedInt<-127, 127> {
-                let num = match bounded_int::trim::<i8, -0x80>(1) {
-                    OptionRev::Some(n) => n,
-                    OptionRev::None => 1,
-                };
+        // use core::internal::{OptionRev, bounded_int::BoundedInt};
+        // use core::internal::bounded_int;
+        // fn main() -> BoundedInt<-127, 127> {
+        //     let num = match bounded_int::trim::<i8, -0x80>(1) {
+        //         OptionRev::Some(n) => n,
+        //         OptionRev::None => 1,
+        //     };
 
-                num
-            }
-        );
-        let ctx = NativeContext::new();
-        let module = ctx.compile(&program, false, None).unwrap();
-        let executor = JitNativeExecutor::from_native_module(module, OptLevel::Default).unwrap();
-        let ExecutionResult {
-            remaining_gas: _,
-            return_value,
-            builtin_stats: _,
-        } = executor
-            .invoke_dynamic(&program.funcs[0].id, &[], None)
-            .unwrap();
+        //     num
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [0] = i8 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Const<[1], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [1] = BoundedInt<-127, 127> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = Const<[0], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+
+            libfunc [1] = const_as_immediate<[2]>;
+            libfunc [4] = store_temp<[0]>;
+            libfunc [0] = bounded_int_trim<[0], -128>;
+            libfunc [2] = branch_align;
+            libfunc [3] = const_as_immediate<[3]>;
+            libfunc [5] = store_temp<[1]>;
+
+            [1]() -> ([0]); // 0
+            [4]([0]) -> ([0]); // 1
+            [0]([0]) { fallthrough() 7([1]) }; // 2
+            [2]() -> (); // 3
+            [3]() -> ([2]); // 4
+            [5]([2]) -> ([2]); // 5
+            return([2]); // 6
+            [2]() -> (); // 7
+            [5]([1]) -> ([1]); // 8
+            return([1]); // 9
+
+            [0]@0() -> ([1]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        let return_value = run_sierra_program(&program, &[]).return_value;
 
         let Value::BoundedInt { value, range: _ } = return_value else {
             panic!();
@@ -888,28 +917,43 @@ mod test {
 
     #[test]
     fn test_trim_some_u32() {
-        let (_, program) = load_cairo!(
-            use core::internal::{OptionRev, bounded_int::BoundedInt};
-            use core::internal::bounded_int;
-            fn main() -> BoundedInt<0, 4294967294> {
-                let num = match bounded_int::trim::<u32, 0xffffffff>(0xfffffffe) {
-                    OptionRev::Some(n) => n,
-                    OptionRev::None => 0,
-                };
+        // use core::internal::{OptionRev, bounded_int::BoundedInt};
+        // use core::internal::bounded_int;
+        // fn main() -> BoundedInt<0, 4294967294> {
+        //     let num = match bounded_int::trim::<u32, 0xffffffff>(0xfffffffe) {
+        //         OptionRev::Some(n) => n,
+        //         OptionRev::None => 0,
+        //     };
+        //     num
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [0] = u32 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Const<[1], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [1] = BoundedInt<0, 4294967294> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = Const<[0], 4294967294> [storable: false, drop: false, dup: false, zero_sized: false];
 
-                num
-            }
-        );
-        let ctx = NativeContext::new();
-        let module = ctx.compile(&program, false, None).unwrap();
-        let executor = JitNativeExecutor::from_native_module(module, OptLevel::Default).unwrap();
-        let ExecutionResult {
-            remaining_gas: _,
-            return_value,
-            builtin_stats: _,
-        } = executor
-            .invoke_dynamic(&program.funcs[0].id, &[], None)
-            .unwrap();
+            libfunc [1] = const_as_immediate<[2]>;
+            libfunc [4] = store_temp<[0]>;
+            libfunc [0] = bounded_int_trim<[0], 4294967295>;
+            libfunc [2] = branch_align;
+            libfunc [3] = const_as_immediate<[3]>;
+            libfunc [5] = store_temp<[1]>;
+
+            [1]() -> ([0]); // 0
+            [4]([0]) -> ([0]); // 1
+            [0]([0]) { fallthrough() 7([1]) }; // 2
+            [2]() -> (); // 3
+            [3]() -> ([2]); // 4
+            [5]([2]) -> ([2]); // 5
+            return([2]); // 6
+            [2]() -> (); // 7
+            [5]([1]) -> ([1]); // 8
+            return([1]); // 9
+
+            [0]@0() -> ([1]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        let return_value = run_sierra_program(&program, &[]).return_value;
 
         let Value::BoundedInt { value, range: _ } = return_value else {
             panic!();
@@ -919,28 +963,34 @@ mod test {
 
     #[test]
     fn test_trim_none() {
-        let (_, program) = load_cairo!(
-            use core::internal::{OptionRev, bounded_int::BoundedInt};
-            use core::internal::bounded_int;
-            fn main() -> BoundedInt<-32767, 32767> {
-                let num = match bounded_int::trim::<i16, -0x8000>(-0x8000) {
-                    OptionRev::Some(n) => n,
-                    OptionRev::None => 0,
-                };
+        let program = ProgramParser::new().parse(r#"
+            type [0] = i16 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Const<[1], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [1] = BoundedInt<-32767, 32767> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = Const<[0], -32768> [storable: false, drop: false, dup: false, zero_sized: false];
 
-                num
-            }
-        );
-        let ctx = NativeContext::new();
-        let module = ctx.compile(&program, false, None).unwrap();
-        let executor = JitNativeExecutor::from_native_module(module, OptLevel::Default).unwrap();
-        let ExecutionResult {
-            remaining_gas: _,
-            return_value,
-            builtin_stats: _,
-        } = executor
-            .invoke_dynamic(&program.funcs[0].id, &[], None)
-            .unwrap();
+            libfunc [1] = const_as_immediate<[2]>;
+            libfunc [4] = store_temp<[0]>;
+            libfunc [0] = bounded_int_trim<[0], -32768>;
+            libfunc [2] = branch_align;
+            libfunc [3] = const_as_immediate<[3]>;
+            libfunc [5] = store_temp<[1]>;
+
+            [1]() -> ([0]); // 0
+            [4]([0]) -> ([0]); // 1
+            [0]([0]) { fallthrough() 7([1]) }; // 2
+            [2]() -> (); // 3
+            [3]() -> ([2]); // 4
+            [5]([2]) -> ([2]); // 5
+            return([2]); // 6
+            [2]() -> (); // 7
+            [5]([1]) -> ([1]); // 8
+            return([1]); // 9
+
+            [0]@0() -> ([1]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        let return_value = run_sierra_program(&program, &[]).return_value;
 
         let Value::BoundedInt { value, range: _ } = return_value else {
             panic!();

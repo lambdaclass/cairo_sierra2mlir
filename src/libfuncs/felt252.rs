@@ -331,65 +331,180 @@ pub fn build_is_zero<'ctx, 'this>(
 
 #[cfg(test)]
 pub mod test {
-    use crate::{
-        utils::test::{load_cairo, run_program},
-        values::Value,
-    };
-    use cairo_lang_sierra::program::Program;
+    use crate::{utils::test::run_sierra_program, values::Value};
+    use cairo_lang_sierra::{program::Program, ProgramParser};
     use lazy_static::lazy_static;
     use starknet_types_core::felt::Felt;
 
     lazy_static! {
-        static ref FELT252_ADD: (String, Program) = load_cairo! {
-            fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
-                lhs + rhs
-            }
-        };
+        // fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
+        //     lhs + rhs
+        // }
+        static ref FELT252_ADD: Program = ProgramParser::new().parse(r#"
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
 
-        static ref FELT252_SUB: (String, Program) = load_cairo! {
-            fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
-                lhs - rhs
-            }
-        };
+            libfunc [0] = felt252_add;
+            libfunc [2] = store_temp<[0]>;
 
-        static ref FELT252_MUL: (String, Program) = load_cairo! {
-            fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
-                lhs * rhs
-            }
-        };
+            [0]([0], [1]) -> ([2]); // 0
+            [2]([2]) -> ([2]); // 1
+            return([2]); // 2
 
-        static ref FELT252_DIV: (String, Program) = load_cairo! {
-            fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
-                felt252_div(lhs, rhs.try_into().unwrap())
-            }
-        };
+            [0]@0([0]: [0], [1]: [0]) -> ([0]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        // fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
+        //     lhs - rhs
+        // }
+        static ref FELT252_SUB: Program = ProgramParser::new().parse(r#"
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+
+            libfunc [0] = felt252_sub;
+            libfunc [2] = store_temp<[0]>;
+
+            [0]([0], [1]) -> ([2]); // 0
+            [2]([2]) -> ([2]); // 1
+            return([2]); // 2
+
+            [0]@0([0]: [0], [1]: [0]) -> ([0]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        // fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
+        //     lhs * rhs
+        // }
+        static ref FELT252_MUL: Program = ProgramParser::new().parse(r#"
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+
+            libfunc [0] = felt252_mul;
+            libfunc [2] = store_temp<[0]>;
+
+            [0]([0], [1]) -> ([2]); // 0
+            [2]([2]) -> ([2]); // 1
+            return([2]); // 2
+
+            [0]@0([0]: [0], [1]: [0]) -> ([0]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        // fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
+        //     felt252_div(lhs, rhs.try_into().unwrap())
+        // }
+        static ref FELT252_DIV: Program = ProgramParser::new().parse(r#"
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [5] = Struct<ut@Tuple, [0]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Struct<ut@core::panics::Panic> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [2] = Array<[0]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [4] = Struct<ut@Tuple, [3], [2]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [6] = Enum<ut@core::panics::PanicResult::<(core::felt252,)>, [5], [4]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [7] = Const<[0], 29721761890975875353235833581453094220424382983267374> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [1] = NonZero<[0]> [storable: true, drop: true, dup: true, zero_sized: false];
+
+            libfunc [8] = felt252_is_zero;
+            libfunc [9] = branch_align;
+            libfunc [10] = drop<[0]>;
+            libfunc [7] = array_new<[0]>;
+            libfunc [11] = const_as_immediate<[7]>;
+            libfunc [12] = store_temp<[0]>;
+            libfunc [6] = array_append<[0]>;
+            libfunc [5] = struct_construct<[3]>;
+            libfunc [4] = struct_construct<[4]>;
+            libfunc [3] = enum_init<[6], 1>;
+            libfunc [13] = store_temp<[6]>;
+            libfunc [2] = felt252_div;
+            libfunc [1] = struct_construct<[5]>;
+            libfunc [0] = enum_init<[6], 0>;
+
+            [8]([1]) { fallthrough() 12([2]) }; // 0
+            [9]() -> (); // 1
+            [10]([0]) -> (); // 2
+            [7]() -> ([3]); // 3
+            [11]() -> ([4]); // 4
+            [12]([4]) -> ([4]); // 5
+            [6]([3], [4]) -> ([5]); // 6
+            [5]() -> ([6]); // 7
+            [4]([6], [5]) -> ([7]); // 8
+            [3]([7]) -> ([8]); // 9
+            [13]([8]) -> ([8]); // 10
+            return([8]); // 11
+            [9]() -> (); // 12
+            [2]([0], [2]) -> ([9]); // 13
+            [1]([9]) -> ([10]); // 14
+            [0]([10]) -> ([11]); // 15
+            [13]([11]) -> ([11]); // 16
+            return([11]); // 17
+
+            [0]@0([0]: [0], [1]: [0]) -> ([6]);
+        "#).map_err(|e| e.to_string()).unwrap();
 
         // TODO: Add test program for `felt252_add_const`.
         // TODO: Add test program for `felt252_sub_const`.
         // TODO: Add test program for `felt252_mul_const`.
         // TODO: Add test program for `felt252_div_const`.
+        // extern fn felt252_const<const value: felt252>() -> felt252 nopanic;
+        // fn run_test() -> (felt252, felt252, felt252, felt252) {
+        //     (
+        //         felt252_const::<0>(),
+        //         felt252_const::<1>(),
+        //         felt252_const::<-2>(),
+        //         felt252_const::<-1>()
+        //     )
+        // }
+        static ref FELT252_CONST: Program = ProgramParser::new().parse(r#"
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = Struct<ut@Tuple, [0], [0], [0], [0]> [storable: true, drop: true, dup: true, zero_sized: false];
 
-        static ref FELT252_CONST: (String, Program) = load_cairo! {
-            extern fn felt252_const<const value: felt252>() -> felt252 nopanic;
+            libfunc [4] = felt252_const<0>;
+            libfunc [3] = felt252_const<1>;
+            libfunc [2] = felt252_const<-2>;
+            libfunc [1] = felt252_const<-1>;
+            libfunc [0] = struct_construct<[1]>;
+            libfunc [6] = store_temp<[1]>;
 
-            fn run_test() -> (felt252, felt252, felt252, felt252) {
-                (
-                    felt252_const::<0>(),
-                    felt252_const::<1>(),
-                    felt252_const::<-2>(),
-                    felt252_const::<-1>()
-                )
-            }
-        };
+            [4]() -> ([0]); // 0
+            [3]() -> ([1]); // 1
+            [2]() -> ([2]); // 2
+            [1]() -> ([3]); // 3
+            [0]([0], [1], [2], [3]) -> ([4]); // 4
+            [6]([4]) -> ([4]); // 5
+            return([4]); // 6
 
-        static ref FELT252_IS_ZERO: (String, Program) = load_cairo! {
-            fn run_test(x: felt252) -> bool {
-                match x {
-                    0 => true,
-                    _ => false,
-                }
-            }
-        };
+            [0]@0() -> ([1]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        // fn run_test(x: felt252) -> bool {
+        //     match x {
+        //         0 => true,
+        //         _ => false,
+        //     }
+        // }
+        static ref FELT252_IS_ZERO: Program = ProgramParser::new().parse(r#"
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [3] = Enum<ut@core::bool, [2], [2]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = NonZero<[0]> [storable: true, drop: true, dup: true, zero_sized: false];
+
+            libfunc [3] = felt252_is_zero;
+            libfunc [4] = branch_align;
+            libfunc [1] = struct_construct<[2]>;
+            libfunc [2] = enum_init<[3], 1>;
+            libfunc [6] = store_temp<[3]>;
+            libfunc [5] = drop<[1]>;
+            libfunc [0] = enum_init<[3], 0>;
+
+            [3]([0]) { fallthrough() 6([1]) }; // 0
+            [4]() -> (); // 1
+            [1]() -> ([2]); // 2
+            [2]([2]) -> ([3]); // 3
+            [6]([3]) -> ([3]); // 4
+            return([3]); // 5
+            [4]() -> (); // 6
+            [5]([1]) -> (); // 7
+            [1]() -> ([4]); // 8
+            [0]([4]) -> ([5]); // 9
+            [6]([5]) -> ([5]); // 10
+            return([5]); // 11
+
+            [0]@0([0]: [0]) -> ([3]);
+        "#).map_err(|e| e.to_string()).unwrap();
     }
 
     fn f(val: &str) -> Felt {
@@ -399,12 +514,8 @@ pub mod test {
     #[test]
     fn felt252_add() {
         fn r(lhs: Felt, rhs: Felt) -> Felt {
-            match run_program(
-                &FELT252_ADD,
-                "run_test",
-                &[Value::Felt252(lhs), Value::Felt252(rhs)],
-            )
-            .return_value
+            match run_sierra_program(&FELT252_ADD, &[Value::Felt252(lhs), Value::Felt252(rhs)])
+                .return_value
             {
                 Value::Felt252(x) => x,
                 _ => panic!("invalid return type"),
@@ -437,12 +548,8 @@ pub mod test {
     #[test]
     fn felt252_sub() {
         fn r(lhs: Felt, rhs: Felt) -> Felt {
-            match run_program(
-                &FELT252_SUB,
-                "run_test",
-                &[Value::Felt252(lhs), Value::Felt252(rhs)],
-            )
-            .return_value
+            match run_sierra_program(&FELT252_SUB, &[Value::Felt252(lhs), Value::Felt252(rhs)])
+                .return_value
             {
                 Value::Felt252(x) => x,
                 _ => panic!("invalid return type"),
@@ -473,12 +580,8 @@ pub mod test {
     #[test]
     fn felt252_mul() {
         fn r(lhs: Felt, rhs: Felt) -> Felt {
-            match run_program(
-                &FELT252_MUL,
-                "run_test",
-                &[Value::Felt252(lhs), Value::Felt252(rhs)],
-            )
-            .return_value
+            match run_sierra_program(&FELT252_MUL, &[Value::Felt252(lhs), Value::Felt252(rhs)])
+                .return_value
             {
                 Value::Felt252(x) => x,
                 _ => panic!("invalid return type"),
@@ -510,12 +613,8 @@ pub mod test {
     fn felt252_div() {
         // Helper function to run the test and extract the return value.
         fn r(lhs: Felt, rhs: Felt) -> Option<Felt> {
-            match run_program(
-                &FELT252_DIV,
-                "run_test",
-                &[Value::Felt252(lhs), Value::Felt252(rhs)],
-            )
-            .return_value
+            match run_sierra_program(&FELT252_DIV, &[Value::Felt252(lhs), Value::Felt252(rhs)])
+                .return_value
             {
                 Value::Enum { tag: 0, value, .. } => match *value {
                     Value::Struct { fields, .. } => {
@@ -571,7 +670,7 @@ pub mod test {
     #[test]
     fn felt252_const() {
         assert_eq!(
-            run_program(&FELT252_CONST, "run_test", &[]).return_value,
+            run_sierra_program(&FELT252_CONST, &[]).return_value,
             Value::Struct {
                 fields: [f("0"), f("1"), f("-2"), f("-1")]
                     .map(Value::Felt252)
@@ -584,7 +683,7 @@ pub mod test {
     #[test]
     fn felt252_is_zero() {
         fn r(x: Felt) -> bool {
-            match run_program(&FELT252_IS_ZERO, "run_test", &[Value::Felt252(x)]).return_value {
+            match run_sierra_program(&FELT252_IS_ZERO, &[Value::Felt252(x)]).return_value {
                 Value::Enum { tag, .. } => tag != 0,
                 _ => panic!("invalid return type"),
             }

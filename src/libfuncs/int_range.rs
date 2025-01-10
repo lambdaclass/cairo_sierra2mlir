@@ -141,32 +141,78 @@ pub fn build_int_range_pop_front<'ctx, 'this>(
 #[cfg(test)]
 mod test {
     use crate::{
-        utils::test::{jit_enum, jit_struct, load_cairo, run_program_assert_output},
+        utils::test::{jit_enum, jit_struct, run_sierra_program},
         values::Value,
     };
-    use cairo_lang_sierra::program::Program;
+    use cairo_lang_sierra::{program::Program, ProgramParser};
     use lazy_static::lazy_static;
 
     lazy_static! {
-        static ref INT_RANGE_TRY_NEW: (String, Program) = load_cairo! {
-            #[derive(Copy, Drop)]
-            pub extern type IntRange<T>;
-            pub extern fn int_range_try_new<T>(
-                x: T, y: T
-            ) -> Result<IntRange<T>, IntRange<T>> implicits(core::RangeCheck) nopanic;
+        // #[derive(Copy, Drop)]
+        // pub extern type IntRange<T>;
+        // pub extern fn int_range_try_new<T>(
+        //     x: T, y: T
+        // ) -> Result<IntRange<T>, IntRange<T>> implicits(core::RangeCheck) nopanic;
+        // fn run_test(lhs: u64, rhs: u64) -> IntRange<u64> {
+        //     int_range_try_new(lhs, rhs).unwrap()
+        // }
+        static ref INT_RANGE_TRY_NEW: Program = ProgramParser::new().parse(r#"
+            type [0] = RangeCheck [storable: true, drop: false, dup: false, zero_sized: false];
+            type [4] = Struct<ut@core::panics::Panic> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [6] = Array<[5]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [7] = Struct<ut@Tuple, [4], [6]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [9] = Const<[5], 30828113188794245257250221355944970489240709081949230> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [5] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = IntRange<[1]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Struct<ut@Tuple, [2]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [8] = Enum<ut@core::panics::PanicResult::<(program::program::IntRange::<core::integer::u64>,)>, [3], [7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [1] = u64 [storable: true, drop: true, dup: true, zero_sized: false];
 
-            fn run_test(lhs: u64, rhs: u64) -> IntRange<u64> {
-                int_range_try_new(lhs, rhs).unwrap()
-            }
-        };
+            libfunc [7] = int_range_try_new<[1]>;
+            libfunc [8] = branch_align;
+            libfunc [6] = struct_construct<[3]>;
+            libfunc [5] = enum_init<[8], 0>;
+            libfunc [11] = store_temp<[0]>;
+            libfunc [12] = store_temp<[8]>;
+            libfunc [9] = drop<[2]>;
+            libfunc [4] = array_new<[5]>;
+            libfunc [10] = const_as_immediate<[9]>;
+            libfunc [13] = store_temp<[5]>;
+            libfunc [3] = array_append<[5]>;
+            libfunc [2] = struct_construct<[4]>;
+            libfunc [1] = struct_construct<[7]>;
+            libfunc [0] = enum_init<[8], 1>;
+
+            [7]([0], [1], [2]) { fallthrough([3], [4]) 7([5], [6]) }; // 0
+            [8]() -> (); // 1
+            [6]([4]) -> ([7]); // 2
+            [5]([7]) -> ([8]); // 3
+            [11]([3]) -> ([3]); // 4
+            [12]([8]) -> ([8]); // 5
+            return([3], [8]); // 6
+            [8]() -> (); // 7
+            [9]([6]) -> (); // 8
+            [4]() -> ([9]); // 9
+            [10]() -> ([10]); // 10
+            [13]([10]) -> ([10]); // 11
+            [3]([9], [10]) -> ([11]); // 12
+            [2]() -> ([12]); // 13
+            [1]([12], [11]) -> ([13]); // 14
+            [0]([13]) -> ([14]); // 15
+            [11]([5]) -> ([5]); // 16
+            [12]([14]) -> ([14]); // 17
+            return([5], [14]); // 18
+
+            [0]@0([0]: [0], [1]: [1], [2]: [1]) -> ([0], [8]);
+        "#).map_err(|e| e.to_string()).unwrap();
     }
 
     #[test]
     fn int_range_try_new() {
-        run_program_assert_output(
-            &INT_RANGE_TRY_NEW,
-            "run_test",
-            &[2u64.into(), 4u64.into()],
+        let return_value =
+            run_sierra_program(&INT_RANGE_TRY_NEW, &[2u64.into(), 4u64.into()]).return_value;
+
+        assert_eq!(
             jit_enum!(
                 0,
                 jit_struct!(Value::IntRange {
@@ -174,6 +220,7 @@ mod test {
                     y: Box::new(4u64.into()),
                 })
             ),
+            return_value
         );
     }
 }

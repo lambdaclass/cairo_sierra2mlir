@@ -493,98 +493,261 @@ pub fn build_zero<'ctx, 'this>(
 #[cfg(test)]
 mod test {
     use crate::{
-        utils::test::{jit_enum, jit_struct, load_cairo, run_program, run_program_assert_output},
+        utils::test::{jit_enum, jit_struct, run_sierra_program},
         values::Value,
     };
-    use cairo_lang_sierra::program::Program;
+    use cairo_lang_sierra::{program::Program, ProgramParser};
     use lazy_static::lazy_static;
     use starknet_types_core::felt::Felt;
     use std::ops::Neg;
 
     lazy_static! {
-        static ref EC_POINT_IS_ZERO: (String, Program) = load_cairo! {
-            use core::{ec::{ec_point_is_zero, EcPoint}, zeroable::IsZeroResult};
+        // use core::{ec::{ec_point_is_zero, EcPoint}, zeroable::IsZeroResult};
+        // fn run_test(point: EcPoint) -> IsZeroResult<EcPoint> {
+        //     ec_point_is_zero(point)
+        // }
+        static ref EC_POINT_IS_ZERO: Program = ProgramParser::new().parse(r#"
+            type [0] = EcPoint [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [1] = NonZero<[0]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Enum<ut@core::zeroable::IsZeroResult::<core::ec::EcPoint>, [2], [1]> [storable: true, drop: true, dup: true, zero_sized: false];
 
-            fn run_test(point: EcPoint) -> IsZeroResult<EcPoint> {
-                ec_point_is_zero(point)
-            }
-        };
-        static ref EC_NEG: (String, Program) = load_cairo! {
-            use core::ec::{ec_neg, EcPoint};
+            libfunc [3] = ec_point_is_zero;
+            libfunc [4] = branch_align;
+            libfunc [2] = struct_construct<[2]>;
+            libfunc [1] = enum_init<[3], 0>;
+            libfunc [5] = store_temp<[3]>;
+            libfunc [0] = enum_init<[3], 1>;
 
-            fn run_test(point: EcPoint) -> EcPoint {
-                ec_neg(point)
-            }
-        };
-        static ref EC_POINT_FROM_X_NZ: (String, Program) = load_cairo! {
-            use core::ec::{ec_point_from_x_nz, EcPoint};
-            use core::zeroable::NonZero;
+            [3]([0]) { fallthrough() 6([1]) }; // 0
+            [4]() -> (); // 1
+            [2]() -> ([2]); // 2
+            [1]([2]) -> ([3]); // 3
+            [5]([3]) -> ([3]); // 4
+            return([3]); // 5
+            [4]() -> (); // 6
+            [0]([1]) -> ([4]); // 7
+            [5]([4]) -> ([4]); // 8
+            return([4]); // 9
 
-            fn run_test(x: felt252) -> Option<NonZero<EcPoint>> {
-                ec_point_from_x_nz(x)
-            }
-        };
-        static ref EC_STATE_ADD: (String, Program) = load_cairo! {
-            use core::ec::{ec_state_add, EcPoint, EcState};
-            use core::zeroable::NonZero;
+            [0]@0([0]: [0]) -> ([3]);
+        "#).map_err(|e| e.to_string()).unwrap();
+        // use core::ec::{ec_neg, EcPoint};
+        // fn run_test(point: EcPoint) -> EcPoint {
+        //     ec_neg(point)
+        // }
+        static ref EC_NEG: Program = ProgramParser::new().parse(r#"
+            type [0] = EcPoint [storable: true, drop: true, dup: true, zero_sized: false];
 
-            fn run_test(mut state: EcState, point: NonZero<EcPoint>) -> EcState {
-                ec_state_add(ref state, point);
-                state
-            }
-        };
-        static ref EC_STATE_ADD_MUL: (String, Program) = load_cairo! {
-            use core::ec::{ec_state_add_mul, EcPoint, EcState};
-            use core::zeroable::NonZero;
+            libfunc [0] = ec_neg;
+            libfunc [2] = store_temp<[0]>;
 
-            fn run_test(mut state: EcState, scalar: felt252, point: NonZero<EcPoint>) -> EcState {
-                ec_state_add_mul(ref state, scalar, point);
-                state
-            }
-        };
-        static ref EC_STATE_FINALIZE: (String, Program) = load_cairo! {
-            use core::ec::{ec_state_try_finalize_nz, EcPoint, EcState};
-            use core::zeroable::NonZero;
+            [0]([0]) -> ([1]); // 0
+            [2]([1]) -> ([1]); // 1
+            return([1]); // 2
 
-            fn run_test(state: EcState) -> Option<NonZero<EcPoint>> {
-                ec_state_try_finalize_nz(state)
-            }
-        };
-        static ref EC_STATE_INIT: (String, Program) = load_cairo! {
-            use core::ec::{ec_state_init, EcState};
+            [0]@0([0]: [0]) -> ([0]);
+        "#).map_err(|e| e.to_string()).unwrap();
+        // use core::ec::{ec_point_from_x_nz, EcPoint};
+        // use core::zeroable::NonZero;
+        // fn run_test(x: felt252) -> Option<NonZero<EcPoint>> {
+        //     ec_point_from_x_nz(x)
+        // }
+        static ref EC_POINT_FROM_X_NZ: Program = ProgramParser::new().parse(r#"
+            type [0] = RangeCheck [storable: true, drop: false, dup: false, zero_sized: false];
+            type [4] = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [2] = EcPoint [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = NonZero<[2]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [5] = Enum<ut@core::option::Option::<core::zeroable::NonZero::<core::ec::EcPoint>>, [3], [4]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
 
-            fn run_test() -> EcState {
-                ec_state_init()
-            }
-        };
-        static ref EC_POINT_TRY_NEW_NZ: (String, Program) = load_cairo! {
-            use core::ec::{ec_point_try_new_nz, EcPoint};
-            use core::zeroable::NonZero;
+            libfunc [3] = ec_point_from_x_nz;
+            libfunc [4] = branch_align;
+            libfunc [2] = enum_init<[5], 0>;
+            libfunc [5] = store_temp<[0]>;
+            libfunc [6] = store_temp<[5]>;
+            libfunc [1] = struct_construct<[4]>;
+            libfunc [0] = enum_init<[5], 1>;
 
-            fn run_test(x: felt252, y: felt252) -> Option<NonZero<EcPoint>> {
-                ec_point_try_new_nz(x, y)
-            }
-        };
-        static ref EC_POINT_UNWRAP: (String, Program) = load_cairo! {
-            use core::{ec::{ec_point_unwrap, EcPoint}, zeroable::NonZero};
+            [3]([0], [1]) { fallthrough([2], [3]) 6([4]) }; // 0
+            [4]() -> (); // 1
+            [2]([3]) -> ([5]); // 2
+            [5]([2]) -> ([2]); // 3
+            [6]([5]) -> ([5]); // 4
+            return([2], [5]); // 5
+            [4]() -> (); // 6
+            [1]() -> ([6]); // 7
+            [0]([6]) -> ([7]); // 8
+            [5]([4]) -> ([4]); // 9
+            [6]([7]) -> ([7]); // 10
+            return([4], [7]); // 11
 
-            fn run_test(point: NonZero<EcPoint>) -> (felt252, felt252) {
-                ec_point_unwrap(point)
-            }
-        };
-        static ref EC_POINT_ZERO: (String, Program) = load_cairo! {
-            use core::ec::{ec_point_zero, EcPoint};
+            [0]@0([0]: [0], [1]: [1]) -> ([0], [5]);
+        "#).map_err(|e| e.to_string()).unwrap();
+        // use core::ec::{ec_state_add, EcPoint, EcState};
+        // use core::zeroable::NonZero;
+        // fn run_test(mut state: EcState, point: NonZero<EcPoint>) -> EcState {
+        //     ec_state_add(ref state, point);
+        //     state
+        // }
+        static ref EC_STATE_ADD: Program = ProgramParser::new().parse(r#"
+            type [0] = EcState [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = EcPoint [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = NonZero<[1]> [storable: true, drop: true, dup: true, zero_sized: false];
 
-            fn run_test() -> EcPoint {
-                ec_point_zero()
-            }
-        };
+            libfunc [0] = ec_state_add;
+            libfunc [2] = store_temp<[0]>;
+
+            [0]([0], [1]) -> ([2]); // 0
+            [2]([2]) -> ([2]); // 1
+            return([2]); // 2
+
+            [0]@0([0]: [0], [1]: [2]) -> ([0]);
+        "#).map_err(|e| e.to_string()).unwrap();
+        // use core::ec::{ec_state_add_mul, EcPoint, EcState};
+        // use core::zeroable::NonZero;
+        // fn run_test(mut state: EcState, scalar: felt252, point: NonZero<EcPoint>) -> EcState {
+        //     ec_state_add_mul(ref state, scalar, point);
+        //     state
+        // }
+        static ref EC_STATE_ADD_MUL: Program = ProgramParser::new().parse(r#"
+            type [0] = EcOp [storable: true, drop: false, dup: false, zero_sized: false];
+            type [3] = EcPoint [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = NonZero<[3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = EcState [storable: true, drop: true, dup: true, zero_sized: false];
+
+            libfunc [0] = ec_state_add_mul;
+            libfunc [2] = store_temp<[0]>;
+            libfunc [3] = store_temp<[1]>;
+
+            [0]([0], [1], [2], [3]) -> ([4], [5]); // 0
+            [2]([4]) -> ([4]); // 1
+            [3]([5]) -> ([5]); // 2
+            return([4], [5]); // 3
+
+            [0]@0([0]: [0], [1]: [1], [2]: [2], [3]: [4]) -> ([0], [1]);
+        "#).map_err(|e| e.to_string()).unwrap();
+        // use core::ec::{ec_state_try_finalize_nz, EcPoint, EcState};
+        // use core::zeroable::NonZero;
+        // fn run_test(state: EcState) -> Option<NonZero<EcPoint>> {
+        //     ec_state_try_finalize_nz(state)
+        // }
+        static ref EC_STATE_FINALIZE: Program = ProgramParser::new().parse(r#"
+            type [0] = EcState [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [1] = EcPoint [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = NonZero<[1]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Enum<ut@core::option::Option::<core::zeroable::NonZero::<core::ec::EcPoint>>, [2], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+
+            libfunc [3] = ec_state_try_finalize_nz;
+            libfunc [4] = branch_align;
+            libfunc [2] = enum_init<[4], 0>;
+            libfunc [5] = store_temp<[4]>;
+            libfunc [1] = struct_construct<[3]>;
+            libfunc [0] = enum_init<[4], 1>;
+
+            [3]([0]) { fallthrough([1]) 5() }; // 0
+            [4]() -> (); // 1
+            [2]([1]) -> ([2]); // 2
+            [5]([2]) -> ([2]); // 3
+            return([2]); // 4
+            [4]() -> (); // 5
+            [1]() -> ([3]); // 6
+            [0]([3]) -> ([4]); // 7
+            [5]([4]) -> ([4]); // 8
+            return([4]); // 9
+
+            [0]@0([0]: [0]) -> ([4]);
+        "#).map_err(|e| e.to_string()).unwrap();
+        // use core::ec::{ec_state_init, EcState};
+        // fn run_test() -> EcState {
+        //     ec_state_init()
+        // }
+        static ref EC_STATE_INIT: Program = ProgramParser::new().parse(r#"
+            type [0] = EcState [storable: true, drop: true, dup: true, zero_sized: false];
+
+            libfunc [0] = ec_state_init;
+
+            [0]() -> ([0]); // 0
+            return([0]); // 1
+
+            [0]@0() -> ([0]);
+        "#).map_err(|e| e.to_string()).unwrap();
+        // use core::ec::{ec_point_try_new_nz, EcPoint};
+        // use core::zeroable::NonZero;
+        // fn run_test(x: felt252, y: felt252) -> Option<NonZero<EcPoint>> {
+        //     ec_point_try_new_nz(x, y)
+        // }
+        static ref EC_POINT_TRY_NEW_NZ: Program = ProgramParser::new().parse(r#"
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [1] = EcPoint [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = NonZero<[1]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Enum<ut@core::option::Option::<core::zeroable::NonZero::<core::ec::EcPoint>>, [2], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+
+            libfunc [3] = ec_point_try_new_nz;
+            libfunc [4] = branch_align;
+            libfunc [2] = enum_init<[4], 0>;
+            libfunc [5] = store_temp<[4]>;
+            libfunc [1] = struct_construct<[3]>;
+            libfunc [0] = enum_init<[4], 1>;
+
+            [3]([0], [1]) { fallthrough([2]) 5() }; // 0
+            [4]() -> (); // 1
+            [2]([2]) -> ([3]); // 2
+            [5]([3]) -> ([3]); // 3
+            return([3]); // 4
+            [4]() -> (); // 5
+            [1]() -> ([4]); // 6
+            [0]([4]) -> ([5]); // 7
+            [5]([5]) -> ([5]); // 8
+            return([5]); // 9
+
+            [0]@0([0]: [0], [1]: [0]) -> ([4]);
+        "#).map_err(|e| e.to_string()).unwrap();
+        // use core::{ec::{ec_point_unwrap, EcPoint}, zeroable::NonZero};
+        // fn run_test(point: NonZero<EcPoint>) -> (felt252, felt252) {
+        //     ec_point_unwrap(point)
+        // }
+        static ref EC_POINT_UNWRAP: Program = ProgramParser::new().parse(r#"
+            type [0] = EcPoint [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = NonZero<[0]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Struct<ut@Tuple, [2], [2]> [storable: true, drop: true, dup: true, zero_sized: false];
+
+            libfunc [1] = ec_point_unwrap;
+            libfunc [0] = struct_construct<[3]>;
+            libfunc [3] = store_temp<[3]>;
+
+            [1]([0]) -> ([1], [2]); // 0
+            [0]([1], [2]) -> ([3]); // 1
+            [3]([3]) -> ([3]); // 2
+            return([3]); // 3
+
+            [0]@0([0]: [1]) -> ([3]);
+        "#).map_err(|e| e.to_string()).unwrap();
+        // use core::ec::{ec_point_zero, EcPoint};
+        // fn run_test() -> EcPoint {
+        //     ec_point_zero()
+        // }
+        static ref EC_POINT_ZERO: Program = ProgramParser::new().parse(r#"
+            type [0] = EcPoint [storable: true, drop: true, dup: true, zero_sized: false];
+
+            libfunc [0] = ec_point_zero;
+            libfunc [2] = store_temp<[0]>;
+
+            [0]() -> ([0]); // 0
+            [2]([0]) -> ([0]); // 1
+            return([0]); // 2
+
+            [0]@0() -> ([0]);
+        "#).map_err(|e| e.to_string()).unwrap();
     }
 
     #[test]
     fn ec_point_is_zero() {
-        let r =
-            |x, y| run_program(&EC_POINT_IS_ZERO, "run_test", &[Value::EcPoint(x, y)]).return_value;
+        let r = |x, y| run_sierra_program(&EC_POINT_IS_ZERO, &[Value::EcPoint(x, y)]).return_value;
 
         assert_eq!(r(0.into(), 0.into()), jit_enum!(0, jit_struct!()));
         assert_eq!(
@@ -600,7 +763,7 @@ mod test {
 
     #[test]
     fn ec_neg() {
-        let r = |x, y| run_program(&EC_NEG, "run_test", &[Value::EcPoint(x, y)]).return_value;
+        let r = |x, y| run_sierra_program(&EC_NEG, &[Value::EcPoint(x, y)]).return_value;
 
         assert_eq!(r(0.into(), 0.into()), Value::EcPoint(0.into(), 0.into()));
         assert_eq!(
@@ -616,7 +779,7 @@ mod test {
 
     #[test]
     fn ec_point_from_x() {
-        let r = |x| run_program(&EC_POINT_FROM_X_NZ, "run_test", &[Value::Felt252(x)]).return_value;
+        let r = |x| run_sierra_program(&EC_POINT_FROM_X_NZ, &[Value::Felt252(x)]).return_value;
 
         assert_eq!(r(0.into()), jit_enum!(1, jit_struct!()));
         assert_eq!(r(1234.into()), jit_enum!(0, Value::EcPoint(
@@ -627,7 +790,7 @@ mod test {
 
     #[test]
     fn ec_state_add() {
-        run_program_assert_output(&EC_STATE_ADD, "run_test", &[
+        let return_value = run_sierra_program(&EC_STATE_ADD, &[
             Value::EcState(
                 Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
                 Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap(),
@@ -638,18 +801,34 @@ mod test {
                 Felt::from_dec_str("1234").unwrap(),
                 Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
             )
-        ],
-        Value::EcState(
-            Felt::from_dec_str("763975897824944497806946001227010133599886598340174017198031710397718335159").unwrap(),
-            Felt::from_dec_str("2805180267536471620369715068237762638204710971142209985448115065526708105983").unwrap(),
-            Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-            Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
-        ));
+        ],).return_value;
+
+        assert_eq!(
+            Value::EcState(
+                Felt::from_dec_str(
+                    "763975897824944497806946001227010133599886598340174017198031710397718335159"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2805180267536471620369715068237762638204710971142209985448115065526708105983"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "3151312365169595090315724863753927489909436624354740709748557281394568342450"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2835232394579952276045648147338966184268723952674536708929458753792035266179"
+                )
+                .unwrap()
+            ),
+            return_value
+        )
     }
 
     #[test]
     fn ec_state_add_mul() {
-        run_program_assert_output(&EC_STATE_ADD_MUL, "run_test", &[
+        let return_value1 = run_sierra_program(&EC_STATE_ADD_MUL, &[
             Value::EcState(
                 Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
                 Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap(),
@@ -661,16 +840,31 @@ mod test {
                 Felt::from_dec_str("1234").unwrap(),
                 Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
             )
-        ],
+        ],).return_value;
+
+        assert_eq!(
             Value::EcState(
-                Felt::from_dec_str("763975897824944497806946001227010133599886598340174017198031710397718335159").unwrap(),
-                Felt::from_dec_str("2805180267536471620369715068237762638204710971142209985448115065526708105983").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
-            )
+                Felt::from_dec_str(
+                    "763975897824944497806946001227010133599886598340174017198031710397718335159"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2805180267536471620369715068237762638204710971142209985448115065526708105983"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "3151312365169595090315724863753927489909436624354740709748557281394568342450"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2835232394579952276045648147338966184268723952674536708929458753792035266179"
+                )
+                .unwrap()
+            ),
+            return_value1
         );
 
-        run_program_assert_output(&EC_STATE_ADD_MUL, "run_test", &[
+        let return_value2 = run_sierra_program(&EC_STATE_ADD_MUL, &[
             Value::EcState(
                 Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
                 Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap(),
@@ -682,21 +876,35 @@ mod test {
                 Felt::from_dec_str("1234").unwrap(),
                 Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
             )
-        ],
+        ]).return_value;
+
+        assert_eq!(
             Value::EcState(
-                Felt::from_dec_str("3016674370847061744386893405108272070153695046160622325692702034987910716850").unwrap(),
-                Felt::from_dec_str("898133181809473419542838028331350248951548889944002871647069130998202992502").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
-            )
-        );
+                Felt::from_dec_str(
+                    "3016674370847061744386893405108272070153695046160622325692702034987910716850"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "898133181809473419542838028331350248951548889944002871647069130998202992502"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "3151312365169595090315724863753927489909436624354740709748557281394568342450"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2835232394579952276045648147338966184268723952674536708929458753792035266179"
+                )
+                .unwrap()
+            ),
+            return_value2
+        )
     }
 
     #[test]
     fn ec_state_finalize() {
-        run_program_assert_output(
+        let return_value1 = run_sierra_program(
             &EC_STATE_FINALIZE,
-            "run_test",
             &[Value::EcState(
                 Felt::from_dec_str(
                     "3151312365169595090315724863753927489909436624354740709748557281394568342450",
@@ -715,67 +923,97 @@ mod test {
                 )
                 .unwrap(),
             )],
-            jit_enum!(1, jit_struct!()),
-        );
-        run_program_assert_output(&EC_STATE_FINALIZE, "run_test", &[
-            Value::EcState(
-                Felt::from_dec_str("763975897824944497806946001227010133599886598340174017198031710397718335159").unwrap(),
-                Felt::from_dec_str("2805180267536471620369715068237762638204710971142209985448115065526708105983").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
-            ),
-        ],
-            jit_enum!(0, Value::EcPoint(
-                    Felt::from(1234),
-                    Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
+        )
+        .return_value;
+
+        assert_eq!(jit_enum!(1, jit_struct!()), return_value1);
+
+        let return_value2 = run_sierra_program(
+            &EC_STATE_FINALIZE,
+            &[Value::EcState(
+                Felt::from_dec_str(
+                    "763975897824944497806946001227010133599886598340174017198031710397718335159",
                 )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2805180267536471620369715068237762638204710971142209985448115065526708105983",
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "3151312365169595090315724863753927489909436624354740709748557281394568342450",
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2835232394579952276045648147338966184268723952674536708929458753792035266179",
+                )
+                .unwrap(),
+            )],
+        )
+        .return_value;
+
+        assert_eq!(jit_enum!(0, Value::EcPoint(
+                Felt::from(1234),
+                Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
             )
-        );
+        ), return_value2);
     }
 
     #[test]
     fn ec_state_init() {
-        let result = run_program(&EC_STATE_INIT, "run_test", &[]);
+        let result = run_sierra_program(&EC_STATE_INIT, &[]);
         // cant match the values because the state init is a random point
         assert!(matches!(result.return_value, Value::EcState(_, _, _, _)));
     }
 
     #[test]
     fn ec_point_try_new_nz() {
-        run_program_assert_output(
+        let return_value1 = run_sierra_program(
             &EC_POINT_TRY_NEW_NZ,
-            "run_test",
             &[
                 Felt::from_dec_str("0").unwrap().into(),
                 Felt::from_dec_str("0").unwrap().into(),
             ],
-            jit_enum!(1, jit_struct!()),
-        );
-        run_program_assert_output(
+        )
+        .return_value;
+
+        assert_eq!(jit_enum!(1, jit_struct!()), return_value1);
+
+        let return_value2 = run_sierra_program(
             &EC_POINT_TRY_NEW_NZ,
-            "run_test",
             &[
                 Felt::from_dec_str("1234").unwrap().into(),
-                Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap().into()
+                Felt::from_dec_str(
+                    "1301976514684871091717790968549291947487646995000837413367950573852273027507",
+                )
+                .unwrap()
+                .into(),
             ],
-                jit_enum!(0, Value::EcPoint(
-                    Felt::from_dec_str("1234").unwrap(),
-                    Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
-                ))
-            ,
-        );
-        run_program_assert_output(
+        )
+        .return_value;
+
+        assert_eq!(jit_enum!(0, Value::EcPoint(
+            Felt::from_dec_str("1234").unwrap(),
+            Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
+        )), return_value2);
+
+        let return_value3 = run_sierra_program(
             &EC_POINT_TRY_NEW_NZ,
-            "run_test",
-            &[  Felt::from_dec_str("1234").unwrap().into(),
-                Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap().neg().into()
-                ],
-                jit_enum!(0, Value::EcPoint(
-                    Felt::from_dec_str("1234").unwrap(),
-                    Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap().neg()
-                ))
-                ,
-        );
+            &[
+                Felt::from_dec_str("1234").unwrap().into(),
+                Felt::from_dec_str(
+                    "1301976514684871091717790968549291947487646995000837413367950573852273027507",
+                )
+                .unwrap()
+                .neg()
+                .into(),
+            ],
+        )
+        .return_value;
+
+        assert_eq!(jit_enum!(0, Value::EcPoint(
+            Felt::from_dec_str("1234").unwrap(),
+            Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap().neg()
+        )), return_value3);
     }
 
     #[test]
@@ -790,11 +1028,13 @@ mod test {
 
         #[track_caller]
         fn run(a: &str, b: &str, ea: &str, eb: &str) {
-            run_program_assert_output(
-                &EC_POINT_UNWRAP,
-                "run_test",
-                &[Value::EcPoint(parse(a), parse(b))],
+            let return_value =
+                run_sierra_program(&EC_POINT_UNWRAP, &[Value::EcPoint(parse(a), parse(b))])
+                    .return_value;
+
+            assert_eq!(
                 jit_struct!(parse(ea).into(), parse(eb).into()),
+                return_value
             );
         }
 
@@ -811,14 +1051,14 @@ mod test {
 
     #[test]
     fn ec_point_zero() {
-        run_program_assert_output(
-            &EC_POINT_ZERO,
-            "run_test",
-            &[],
+        let return_value = run_sierra_program(&EC_POINT_ZERO, &[]).return_value;
+
+        assert_eq!(
             Value::EcPoint(
                 Felt::from_dec_str("0").unwrap(),
                 Felt::from_dec_str("0").unwrap().neg(),
             ),
+            return_value
         );
     }
 }

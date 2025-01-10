@@ -97,29 +97,50 @@ pub fn build_pedersen<'ctx>(
 
 #[cfg(test)]
 mod test {
-    use crate::utils::test::{load_cairo, run_program_assert_output};
-
+    use cairo_lang_sierra::ProgramParser;
     use starknet_types_core::felt::Felt;
+
+    use crate::{utils::test::run_sierra_program, Value};
 
     #[test]
     fn run_pedersen() {
-        let program = load_cairo!(
-            use core::pedersen::pedersen;
+        // use core::pedersen::pedersen;
+        // fn run_test(a: felt252, b: felt252) -> felt252 {
+        //     pedersen(a, b)
+        // }
+        let program = ProgramParser::new()
+            .parse(
+                r#"
+            type [0] = Pedersen [storable: true, drop: false, dup: false, zero_sized: false];
+            type [1] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
 
-            fn run_test(a: felt252, b: felt252) -> felt252 {
-                pedersen(a, b)
-            }
-        );
+            libfunc [0] = pedersen;
+            libfunc [2] = store_temp<[0]>;
+            libfunc [3] = store_temp<[1]>;
 
-        run_program_assert_output(
-            &program,
-            "run_test",
-            &[Felt::from(2).into(), Felt::from(4).into()],
-            Felt::from_dec_str(
-                "2178161520066714737684323463974044933282313051386084149915030950231093462467",
+            [0]([0], [1], [2]) -> ([3], [4]); // 0
+            [2]([3]) -> ([3]); // 1
+            [3]([4]) -> ([4]); // 2
+            return([3], [4]); // 3
+
+            [0]@0([0]: [0], [1]: [1], [2]: [1]) -> ([0], [1]);
+        "#,
             )
-            .unwrap()
-            .into(),
+            .map_err(|e| e.to_string())
+            .unwrap();
+
+        let return_value =
+            run_sierra_program(&program, &[Felt::from(2).into(), Felt::from(4).into()])
+                .return_value;
+
+        assert_eq!(
+            Value::from(
+                Felt::from_dec_str(
+                    "2178161520066714737684323463974044933282313051386084149915030950231093462467",
+                )
+                .unwrap()
+            ),
+            return_value
         );
     }
 }

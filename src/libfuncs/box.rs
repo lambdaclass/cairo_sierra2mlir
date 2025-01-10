@@ -152,62 +152,111 @@ pub fn build_unbox<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        utils::test::{load_cairo, run_program_assert_output},
-        values::Value,
-    };
+    use cairo_lang_sierra::ProgramParser;
+
+    use crate::{utils::test::run_sierra_program, values::Value};
 
     #[test]
     fn run_box_unbox() {
-        let program = load_cairo! {
-            use box::BoxTrait;
-            use box::BoxImpl;
+        // use box::BoxTrait;
+        // use box::BoxImpl;
+        // fn run_test() -> u32 {
+        //     let x: u32 = 2_u32;
+        //     let box_x: Box<u32> = BoxTrait::new(x);
+        //     box_x.unbox()
+        // }
+        let program = ProgramParser::new()
+            .parse(
+                r#"
+            type [1] = Box<[0]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [0] = u32 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = Const<[0], 2> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            fn run_test() -> u32 {
-                let x: u32 = 2_u32;
-                let box_x: Box<u32> = BoxTrait::new(x);
-                box_x.unbox()
-            }
-        };
+            libfunc [1] = const_as_box<[2], 0>;
+            libfunc [0] = unbox<[0]>;
+            libfunc [2] = store_temp<[0]>;
 
-        run_program_assert_output(&program, "run_test", &[], Value::Uint32(2));
+            [1]() -> ([0]); // 0
+            [0]([0]) -> ([1]); // 1
+            [2]([1]) -> ([1]); // 2
+            return([1]); // 3
+
+            [0]@0() -> ([0]);
+        "#,
+            )
+            .map_err(|e| e.to_string())
+            .unwrap();
+
+        let return_value = run_sierra_program(&program, &[]).return_value;
+
+        assert_eq!(Value::Uint32(2), return_value);
     }
 
     #[test]
     fn run_box() {
-        let program = load_cairo! {
-            use box::BoxTrait;
-            use box::BoxImpl;
+        // use box::BoxTrait;
+        // use box::BoxImpl;
+        // fn run_test() -> Box<u32>  {
+        //     let x: u32 = 2_u32;
+        //     let box_x: Box<u32> = BoxTrait::new(x);
+        //     box_x
+        // }
+        let program = ProgramParser::new()
+            .parse(
+                r#"
+            type [1] = Box<[0]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = Const<[0], 2> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [0] = u32 [storable: true, drop: true, dup: true, zero_sized: false];
 
-            fn run_test() -> Box<u32>  {
-                let x: u32 = 2_u32;
-                let box_x: Box<u32> = BoxTrait::new(x);
-                box_x
-            }
-        };
+            libfunc [0] = const_as_box<[2], 0>;
 
-        run_program_assert_output(&program, "run_test", &[], Value::Uint32(2));
+            [0]() -> ([0]); // 0
+            return([0]); // 1
+
+            [0]@0() -> ([1]);
+        "#,
+            )
+            .map_err(|e| e.to_string())
+            .unwrap();
+
+        let return_value = run_sierra_program(&program, &[]).return_value;
+
+        assert_eq!(Value::Uint32(2), return_value);
     }
 
     #[test]
     fn box_unbox_stack_allocated_enum_single() {
-        let program = load_cairo! {
-            use core::box::BoxTrait;
+        // use core::box::BoxTrait;
+        // enum MyEnum {
+        //     A: felt252,
+        // }
+        // fn run_test() -> MyEnum {
+        //     let x = BoxTrait::new(MyEnum::A(1234));
+        //     x.unbox()
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [2] = Box<[1]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = Enum<ut@program::program::MyEnum, [0]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Const<[1], 0, [3]> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [3] = Const<[0], 1234> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            enum MyEnum {
-                A: felt252,
-            }
+            libfunc [1] = const_as_box<[4], 0>;
+            libfunc [0] = unbox<[1]>;
+            libfunc [2] = store_temp<[1]>;
 
-            fn run_test() -> MyEnum {
-                let x = BoxTrait::new(MyEnum::A(1234));
-                x.unbox()
-            }
-        };
+            [1]() -> ([0]); // 0
+            [0]([0]) -> ([1]); // 1
+            [2]([1]) -> ([1]); // 2
+            return([1]); // 3
 
-        run_program_assert_output(
-            &program,
-            "run_test",
-            &[],
+            [0]@0() -> ([1]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        let return_value = run_sierra_program(&program, &[]).return_value;
+
+        assert_eq!(
+            return_value,
             Value::Enum {
                 tag: 0,
                 value: Box::new(Value::Felt252(1234.into())),
@@ -218,24 +267,38 @@ mod test {
 
     #[test]
     fn box_unbox_stack_allocated_enum_c() {
-        let program = load_cairo! {
-            use core::box::BoxTrait;
+        // use core::box::BoxTrait;
+        // enum MyEnum {
+        //     A: (),
+        //     B: (),
+        // }
+        // fn run_test() -> MyEnum {
+        //     let x = BoxTrait::new(MyEnum::A);
+        //     x.unbox()
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [2] = Box<[1]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [0] = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [1] = Enum<ut@program::program::MyEnum, [0], [0]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Const<[1], 0, [3]> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [3] = Const<[0]> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            enum MyEnum {
-                A: (),
-                B: (),
-            }
+            libfunc [1] = const_as_box<[4], 0>;
+            libfunc [0] = unbox<[1]>;
+            libfunc [2] = store_temp<[1]>;
 
-            fn run_test() -> MyEnum {
-                let x = BoxTrait::new(MyEnum::A);
-                x.unbox()
-            }
-        };
+            [1]() -> ([0]); // 0
+            [0]([0]) -> ([1]); // 1
+            [2]([1]) -> ([1]); // 2
+            return([1]); // 3
 
-        run_program_assert_output(
-            &program,
-            "run_test",
-            &[],
+            [0]@0() -> ([1]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        let return_value = run_sierra_program(&program, &[]).return_value;
+
+        assert_eq!(
+            return_value,
             Value::Enum {
                 tag: 0,
                 value: Box::new(Value::Struct {
@@ -249,24 +312,38 @@ mod test {
 
     #[test]
     fn box_unbox_stack_allocated_enum_c2() {
-        let program = load_cairo! {
-            use core::box::BoxTrait;
+        // use core::box::BoxTrait;
+        // enum MyEnum {
+        //     A: (),
+        //     B: (),
+        // }
+        // fn run_test() -> MyEnum {
+        //     let x = BoxTrait::new(MyEnum::B);
+        //     x.unbox()
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [2] = Box<[1]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [0] = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [1] = Enum<ut@program::program::MyEnum, [0], [0]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Const<[1], 1, [3]> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [3] = Const<[0]> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            enum MyEnum {
-                A: (),
-                B: (),
-            }
+            libfunc [1] = const_as_box<[4], 0>;
+            libfunc [0] = unbox<[1]>;
+            libfunc [2] = store_temp<[1]>;
 
-            fn run_test() -> MyEnum {
-                let x = BoxTrait::new(MyEnum::B);
-                x.unbox()
-            }
-        };
+            [1]() -> ([0]); // 0
+            [0]([0]) -> ([1]); // 1
+            [2]([1]) -> ([1]); // 2
+            return([1]); // 3
 
-        run_program_assert_output(
-            &program,
-            "run_test",
-            &[],
+            [0]@0() -> ([1]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        let return_value = run_sierra_program(&program, &[]).return_value;
+
+        assert_eq!(
+            return_value,
             Value::Enum {
                 tag: 1,
                 value: Box::new(Value::Struct {
@@ -280,24 +357,41 @@ mod test {
 
     #[test]
     fn box_unbox_stack_allocated_enum() {
-        let program = load_cairo! {
-            use core::box::BoxTrait;
+        // use core::box::BoxTrait;
 
-            enum MyEnum {
-                A: felt252,
-                B: u128,
-            }
+        // enum MyEnum {
+        //     A: felt252,
+        //     B: u128,
+        // }
 
-            fn run_test() -> MyEnum {
-                let x = BoxTrait::new(MyEnum::A(1234));
-                x.unbox()
-            }
-        };
+        // fn run_test() -> MyEnum {
+        //     let x = BoxTrait::new(MyEnum::A(1234));
+        //     x.unbox()
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [3] = Box<[2]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = Enum<ut@program::program::MyEnum, [0], [1]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [5] = Const<[2], 0, [4]> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [4] = Const<[0], 1234> [storable: false, drop: false, dup: false, zero_sized: false];
 
-        run_program_assert_output(
-            &program,
-            "run_test",
-            &[],
+            libfunc [1] = const_as_box<[5], 0>;
+            libfunc [0] = unbox<[2]>;
+            libfunc [2] = store_temp<[2]>;
+
+            [1]() -> ([0]); // 0
+            [0]([0]) -> ([1]); // 1
+            [2]([1]) -> ([1]); // 2
+            return([1]); // 3
+
+            [0]@0() -> ([2]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        let return_value = run_sierra_program(&program, &[]).return_value;
+
+        assert_eq!(
+            return_value,
             Value::Enum {
                 tag: 0,
                 value: Box::new(Value::Felt252(1234.into())),

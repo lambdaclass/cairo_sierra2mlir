@@ -111,28 +111,52 @@ pub fn build_hades_permutation<'ctx>(
 
 #[cfg(test)]
 mod test {
-    use crate::utils::test::{jit_struct, load_cairo, run_program_assert_output};
+    use crate::utils::test::{jit_struct, run_sierra_program};
 
+    use cairo_lang_sierra::ProgramParser;
     use starknet_types_core::felt::Felt;
 
     #[test]
     fn run_hades_permutation() {
-        let program = load_cairo!(
-            use core::poseidon::hades_permutation;
+        // use core::poseidon::hades_permutation;
+        // fn run_test(a: felt252, b: felt252, c: felt252) -> (felt252, felt252, felt252) {
+        //     hades_permutation(a, b, c)
+        // }
+        let program = ProgramParser::new()
+            .parse(
+                r#"
+                type [0] = Poseidon [storable: true, drop: false, dup: false, zero_sized: false];
+                type [1] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+                type [2] = Struct<ut@Tuple, [1], [1], [1]> [storable: true, drop: true, dup: true, zero_sized: false];
 
-            fn run_test(a: felt252, b: felt252, c: felt252) -> (felt252, felt252, felt252) {
-                hades_permutation(a, b, c)
-            }
-        );
+                libfunc [1] = hades_permutation;
+                libfunc [0] = struct_construct<[2]>;
+                libfunc [3] = store_temp<[0]>;
+                libfunc [4] = store_temp<[2]>;
 
-        run_program_assert_output(
+                [1]([0], [1], [2], [3]) -> ([4], [5], [6], [7]); // 0
+                [0]([5], [6], [7]) -> ([8]); // 1
+                [3]([4]) -> ([4]); // 2
+                [4]([8]) -> ([8]); // 3
+                return([4], [8]); // 4
+
+                [0]@0([0]: [0], [1]: [1], [2]: [1], [3]: [1]) -> ([0], [2]);
+        "#,
+            )
+            .map_err(|e| e.to_string())
+            .unwrap();
+
+        let return_value = run_sierra_program(
             &program,
-            "run_test",
             &[
                 Felt::from(2).into(),
                 Felt::from(4).into(),
                 Felt::from(4).into(),
             ],
+        )
+        .return_value;
+
+        assert_eq!(
             jit_struct!(
                 Felt::from_dec_str(
                     "1627044480024625333712068603977073585655327747658231320998869768849911913066"
@@ -150,6 +174,7 @@ mod test {
                 .unwrap()
                 .into(),
             ),
+            return_value
         );
     }
 }

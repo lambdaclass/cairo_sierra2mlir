@@ -290,29 +290,46 @@ pub fn build_const_type_value<'ctx, 'this>(
 
 #[cfg(test)]
 pub mod test {
+    use cairo_lang_sierra::ProgramParser;
+
     use crate::{
-        utils::test::{jit_struct, load_cairo, run_program},
+        utils::test::{jit_struct, run_sierra_program},
         values::Value,
     };
 
     #[test]
     fn run_const_as_box() {
-        let program = load_cairo!(
-            use core::box::BoxTrait;
+        // use core::box::BoxTrait;
+        // struct Hello {
+        //     x: i32,
+        // }
+        // fn run_test() -> Hello {
+        //     let x = BoxTrait::new(Hello {
+        //         x: -2
+        //     });
+        //     x.unbox()
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [2] = Box<[1]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [0] = i32 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = Struct<ut@program::program::Hello, [0]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Const<[1], [3]> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [3] = Const<[0], -2> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            struct Hello {
-                x: i32,
-            }
+            libfunc [1] = const_as_box<[4], 0>;
+            libfunc [0] = unbox<[1]>;
+            libfunc [2] = store_temp<[1]>;
 
-            fn run_test() -> Hello {
-                let x = BoxTrait::new(Hello {
-                    x: -2
-                });
-                x.unbox()
-            }
-        );
+            [1]() -> ([0]); // 0
+            [0]([0]) -> ([1]); // 1
+            [2]([1]) -> ([1]); // 2
+            return([1]); // 3
 
-        let result = run_program(&program, "run_test", &[]).return_value;
+            [0]@0() -> ([1]);
+        "#).map_err(|e| e.to_string()).unwrap();
+
+        let result = run_sierra_program(&program, &[]).return_value;
+
         assert_eq!(result, jit_struct!(Value::Sint32(-2)));
     }
 }

@@ -338,36 +338,122 @@ pub fn build_get_builtin_costs<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
-    use crate::utils::test::{load_cairo, run_program};
+    use cairo_lang_sierra::ProgramParser;
+
+    use crate::utils::test::run_sierra_program;
 
     #[test]
     fn run_withdraw_gas() {
-        #[rustfmt::skip]
-        let program = load_cairo!(
-            use gas::withdraw_gas;
+        // use gas::withdraw_gas;
+        // fn run_test() {
+        //     let mut i = 10;
+        //     loop {
+        //         if i == 0 {
+        //             break;
+        //         }
+        //         match withdraw_gas() {
+        //             Option::Some(()) => {
+        //                 i = i - 1;
+        //             },
+        //             Option::None(()) => {
+        //                 break;
+        //             }
+        //         };
+        //         i = i - 1;
+        //     }
+        // }
+        let program = ProgramParser::new()
+            .parse(
+                r#"
+            type [0] = RangeCheck [storable: true, drop: false, dup: false, zero_sized: false];
+            type [3] = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [2] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [6] = NonZero<[2]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [5] = Const<[2], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [4] = Const<[2], 10> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [1] = GasBuiltin [storable: true, drop: false, dup: false, zero_sized: false];
 
-            fn run_test() {
-                let mut i = 10;
+            libfunc [4] = disable_ap_tracking;
+            libfunc [3] = withdraw_gas;
+            libfunc [5] = branch_align;
+            libfunc [0] = redeposit_gas;
+            libfunc [6] = const_as_immediate<[4]>;
+            libfunc [7] = const_as_immediate<[5]>;
+            libfunc [9] = store_temp<[2]>;
+            libfunc [2] = felt252_sub;
+            libfunc [10] = store_temp<[0]>;
+            libfunc [11] = store_temp<[1]>;
+            libfunc [1] = function_call<user@[0]>;
+            libfunc [8] = drop<[2]>;
+            libfunc [13] = dup<[2]>;
+            libfunc [12] = felt252_is_zero;
+            libfunc [14] = drop<[6]>;
 
-                loop {
-                    if i == 0 {
-                        break;
-                    }
+            [4]() -> (); // 0
+            [3]([0], [1]) { fallthrough([2], [3]) 19([4], [5]) }; // 1
+            [5]() -> (); // 2
+            [0]([3]) -> ([6]); // 3
+            [6]() -> ([7]); // 4
+            [7]() -> ([8]); // 5
+            [9]([7]) -> ([7]); // 6
+            [2]([7], [8]) -> ([9]); // 7
+            [7]() -> ([10]); // 8
+            [9]([9]) -> ([9]); // 9
+            [2]([9], [10]) -> ([11]); // 10
+            [10]([2]) -> ([2]); // 11
+            [11]([6]) -> ([6]); // 12
+            [9]([11]) -> ([11]); // 13
+            [1]([2], [6], [11]) -> ([12], [13], [14]); // 14
+            [8]([14]) -> (); // 15
+            [10]([12]) -> ([12]); // 16
+            [11]([13]) -> ([13]); // 17
+            return([12], [13]); // 18
+            [5]() -> (); // 19
+            [0]([5]) -> ([15]); // 20
+            [10]([4]) -> ([4]); // 21
+            [11]([15]) -> ([15]); // 22
+            return([4], [15]); // 23
+            [4]() -> (); // 24
+            [13]([2]) -> ([2], [3]); // 25
+            [12]([3]) { fallthrough() 33([4]) }; // 26
+            [5]() -> (); // 27
+            [0]([1]) -> ([5]); // 28
+            [10]([0]) -> ([0]); // 29
+            [11]([5]) -> ([5]); // 30
+            [9]([2]) -> ([2]); // 31
+            return([0], [5], [2]); // 32
+            [5]() -> (); // 33
+            [14]([4]) -> (); // 34
+            [0]([1]) -> ([6]); // 35
+            [11]([6]) -> ([6]); // 36
+            [3]([0], [6]) { fallthrough([7], [8]) 50([9], [10]) }; // 37
+            [5]() -> (); // 38
+            [0]([8]) -> ([11]); // 39
+            [7]() -> ([12]); // 40
+            [2]([2], [12]) -> ([13]); // 41
+            [7]() -> ([14]); // 42
+            [9]([13]) -> ([13]); // 43
+            [2]([13], [14]) -> ([15]); // 44
+            [10]([7]) -> ([7]); // 45
+            [11]([11]) -> ([11]); // 46
+            [9]([15]) -> ([15]); // 47
+            [1]([7], [11], [15]) -> ([16], [17], [18]); // 48
+            return([16], [17], [18]); // 49
+            [5]() -> (); // 50
+            [0]([10]) -> ([19]); // 51
+            [10]([9]) -> ([9]); // 52
+            [11]([19]) -> ([19]); // 53
+            [9]([2]) -> ([2]); // 54
+            return([9], [19], [2]); // 55
 
-                    match withdraw_gas() {
-                        Option::Some(()) => {
-                            i = i - 1;
-                        },
-                        Option::None(()) => {
-                            break;
-                        }
-                    };
-                    i = i - 1;
-                }
-            }
-        );
+            [1]@0([0]: [0], [1]: [1]) -> ([0], [1]);
+            [0]@24([0]: [0], [1]: [1], [2]: [2]) -> ([0], [1], [2]);
+        "#,
+            )
+            .map_err(|e| e.to_string())
+            .unwrap();
 
-        let result = run_program(&program, "run_test", &[]);
+        let result = run_sierra_program(&program, &[]);
         assert_eq!(result.remaining_gas, Some(18446744073709545265));
     }
 }

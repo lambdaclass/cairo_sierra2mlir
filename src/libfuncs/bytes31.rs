@@ -162,39 +162,85 @@ pub fn build_from_felt252<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
-    use crate::utils::test::{
-        jit_enum, jit_panic, jit_struct, load_cairo, run_program_assert_output,
-    };
-    use cairo_lang_sierra::program::Program;
+    use crate::utils::test::{jit_enum, jit_panic, jit_struct, run_sierra_program};
+    use cairo_lang_sierra::{program::Program, ProgramParser};
     use lazy_static::lazy_static;
     use starknet_types_core::felt::Felt;
 
     lazy_static! {
         // TODO: Test `bytes31_const` once the compiler supports it.
-        static ref BYTES31_ROUNDTRIP: (String, Program) = load_cairo! {
-            use core::bytes_31::{bytes31_try_from_felt252, bytes31_to_felt252};
 
-            fn run_test(value: felt252) -> felt252 {
-                let a: bytes31 = bytes31_try_from_felt252(value).unwrap();
-                bytes31_to_felt252(a)
-            }
-        };
+        // use core::bytes_31::{bytes31_try_from_felt252, bytes31_to_felt252};
+        // fn run_test(value: felt252) -> felt252 {
+        //     let a: bytes31 = bytes31_try_from_felt252(value).unwrap();
+        //     bytes31_to_felt252(a)
+        // }
+        static ref BYTES31_ROUNDTRIP: Program = ProgramParser::new().parse(r#"
+            type [0] = RangeCheck [storable: true, drop: false, dup: false, zero_sized: false];
+            type [4] = Struct<ut@core::panics::Panic> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [5] = Array<[1]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [6] = Struct<ut@Tuple, [4], [5]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [8] = Const<[1], 29721761890975875353235833581453094220424382983267374> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [1] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Struct<ut@Tuple, [1]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [7] = Enum<ut@core::panics::PanicResult::<(core::felt252,)>, [3], [6]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [2] = bytes31 [storable: true, drop: true, dup: true, zero_sized: false];
+
+            libfunc [8] = bytes31_try_from_felt252;
+            libfunc [9] = branch_align;
+            libfunc [7] = bytes31_to_felt252;
+            libfunc [6] = struct_construct<[3]>;
+            libfunc [5] = enum_init<[7], 0>;
+            libfunc [11] = store_temp<[0]>;
+            libfunc [12] = store_temp<[7]>;
+            libfunc [4] = array_new<[1]>;
+            libfunc [10] = const_as_immediate<[8]>;
+            libfunc [13] = store_temp<[1]>;
+            libfunc [3] = array_append<[1]>;
+            libfunc [2] = struct_construct<[4]>;
+            libfunc [1] = struct_construct<[6]>;
+            libfunc [0] = enum_init<[7], 1>;
+
+            [8]([0], [1]) { fallthrough([2], [3]) 8([4]) }; // 0
+            [9]() -> (); // 1
+            [7]([3]) -> ([5]); // 2
+            [6]([5]) -> ([6]); // 3
+            [5]([6]) -> ([7]); // 4
+            [11]([2]) -> ([2]); // 5
+            [12]([7]) -> ([7]); // 6
+            return([2], [7]); // 7
+            [9]() -> (); // 8
+            [4]() -> ([8]); // 9
+            [10]() -> ([9]); // 10
+            [13]([9]) -> ([9]); // 11
+            [3]([8], [9]) -> ([10]); // 12
+            [2]() -> ([11]); // 13
+            [1]([11], [10]) -> ([12]); // 14
+            [0]([12]) -> ([13]); // 15
+            [11]([4]) -> ([4]); // 16
+            [12]([13]) -> ([13]); // 17
+            return([4], [13]); // 18
+
+            [0]@0([0]: [0], [1]: [1]) -> ([0], [7]);
+            "#).map_err(|e| e.to_string()).unwrap();
     }
 
     #[test]
     fn bytes31_roundtrip() {
-        run_program_assert_output(
-            &BYTES31_ROUNDTRIP,
-            "run_test",
-            &[Felt::from(2).into()],
+        let return_value1 =
+            run_sierra_program(&BYTES31_ROUNDTRIP, &[Felt::from(2).into()]).return_value;
+
+        assert_eq!(
             jit_enum!(0, jit_struct!(Felt::from(2).into())),
+            return_value1
         );
 
-        run_program_assert_output(
-            &BYTES31_ROUNDTRIP,
-            "run_test",
-            &[Felt::MAX.into()],
-            jit_panic!(Felt::from_bytes_be_slice(b"Option::unwrap failed.")),
+        let return_value2 =
+            run_sierra_program(&BYTES31_ROUNDTRIP, &[Felt::MAX.into()]).return_value;
+
+        assert_eq!(
+            return_value2,
+            jit_panic!(Felt::from_bytes_be_slice(b"Option::unwrap failed."))
         );
     }
 }

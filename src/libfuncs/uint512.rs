@@ -160,23 +160,48 @@ pub fn build_divmod_u256<'ctx, 'this>(
 #[cfg(test)]
 mod test {
     use crate::{
-        utils::test::{jit_struct, load_cairo, run_program_assert_output},
+        utils::test::{jit_struct, run_sierra_program},
         values::Value,
     };
-    use cairo_lang_sierra::program::Program;
+    use cairo_lang_sierra::{program::Program, ProgramParser};
     use lazy_static::lazy_static;
     use num_bigint::BigUint;
     use num_traits::One;
 
     lazy_static! {
-        static ref UINT512_DIVMOD_U256: (String, Program) = load_cairo! {
-            use core::integer::{u512, u512_safe_divmod_by_u256};
+        // use core::integer::{u512, u512_safe_divmod_by_u256};
+        // fn run_test(lhs: u512, rhs: NonZero<u256>) -> (u512, u256) {
+        //     let (lhs, rhs, _, _, _, _, _) = u512_safe_divmod_by_u256(lhs, rhs);
+        //     (lhs, rhs)
+        // }
+        static ref UINT512_DIVMOD_U256: Program = ProgramParser::new().parse(r#"
+            type [0] = RangeCheck [storable: true, drop: false, dup: false, zero_sized: false];
+            type [1] = u128 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = Struct<ut@core::integer::u512, [1], [1], [1], [1]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = Struct<ut@core::integer::u256, [1], [1]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [6] = Struct<ut@Tuple, [2], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [5] = U128MulGuarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [4] = NonZero<[3]> [storable: true, drop: true, dup: true, zero_sized: false];
 
-            fn run_test(lhs: u512, rhs: NonZero<u256>) -> (u512, u256) {
-                let (lhs, rhs, _, _, _, _, _) = u512_safe_divmod_by_u256(lhs, rhs);
-                (lhs, rhs)
-            }
-        };
+            libfunc [2] = u512_safe_divmod_by_u256;
+            libfunc [1] = u128_mul_guarantee_verify;
+            libfunc [0] = struct_construct<[6]>;
+            libfunc [4] = store_temp<[0]>;
+            libfunc [5] = store_temp<[6]>;
+
+            [2]([0], [1], [2]) -> ([3], [4], [5], [6], [7], [8], [9], [10]); // 0
+            [1]([3], [10]) -> ([11]); // 1
+            [1]([11], [9]) -> ([12]); // 2
+            [1]([12], [8]) -> ([13]); // 3
+            [1]([13], [7]) -> ([14]); // 4
+            [1]([14], [6]) -> ([15]); // 5
+            [0]([4], [5]) -> ([16]); // 6
+            [4]([15]) -> ([15]); // 7
+            [5]([16]) -> ([16]); // 8
+            return([15], [16]); // 9
+
+            [0]@0([0]: [0], [1]: [2], [2]: [4]) -> ([0], [6]);
+        "#).map_err(|e| e.to_string()).unwrap();
     }
 
     #[test]
@@ -205,12 +230,8 @@ mod test {
             let rhs = u256(rhs);
             let output_u512 = u512(output_u512);
             let output_u256 = u256(output_u256);
-            run_program_assert_output(
-                &UINT512_DIVMOD_U256,
-                "run_test",
-                &[lhs, rhs],
-                jit_struct!(output_u512, output_u256),
-            );
+            let return_value = run_sierra_program(&UINT512_DIVMOD_U256, &[lhs, rhs]).return_value;
+            assert_eq!(jit_struct!(output_u512, output_u256), return_value);
         }
 
         r2(0u32.into(), 1u32.into(), 0u32.into(), 0u32.into());

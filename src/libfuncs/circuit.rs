@@ -995,11 +995,11 @@ mod test {
     use crate::{
         utils::{
             felt252_str,
-            test::{jit_enum, jit_panic, jit_struct, load_cairo, run_program_assert_output},
+            test::{jit_enum, jit_panic, jit_struct, run_sierra_program},
         },
         values::Value,
     };
-    use cairo_lang_sierra::extensions::utils::Range;
+    use cairo_lang_sierra::{extensions::utils::Range, ProgramParser};
     use num_bigint::BigUint;
     use num_traits::Num;
     use starknet_types_core::felt::Felt;
@@ -1039,266 +1039,1937 @@ mod test {
 
     #[test]
     fn run_add_circuit() {
-        let program = load_cairo!(
-            use core::circuit::{
-                RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
-                circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
-                CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
-            };
+        // use core::circuit::{
+        //     RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
+        //     circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
+        //     CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
+        // };
+        // fn main() -> u384 {
+        //     let in1 = CircuitElement::<CircuitInput<0>> {};
+        //     let in2 = CircuitElement::<CircuitInput<1>> {};
+        //     let add = circuit_add(in1, in2);
+        //     let modulus = TryInto::<_, CircuitModulus>::try_into([12, 12, 12, 12]).unwrap();
+        //     let outputs = (add,)
+        //         .new_inputs()
+        //         .next([3, 3, 3, 3])
+        //         .next([6, 6, 6, 6])
+        //         .done()
+        //         .eval(modulus)
+        //         .unwrap();
+        //     outputs.get_output(add)
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [3] = BoundedInt<0, 79228162514264337593543950335> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [40] = Const<[15], 29721761890975875353235833581453094220424382983267374> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [39] = Const<[15], 138583295661092166701491297054433349032460315956105119041111996301516236132> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [38] = Const<[15], 30828113188794245257250221355944970489240709081949230> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [19] = Struct<ut@core::circuit::u384, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [20] = Struct<ut@Tuple, [19]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [31] = U96LimbsLtGuarantee<1> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [30] = U96LimbsLtGuarantee<2> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [29] = U96LimbsLtGuarantee<3> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [9] = AddModGate<[10], [11]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [28] = U96LimbsLtGuarantee<4> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [11] = CircuitInput<1> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [10] = CircuitInput<0> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [27] = CircuitFailureGuarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [26] = CircuitPartialOutputs<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [25] = CircuitOutputs<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [37] = Const<[24], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [24] = BoundedInt<1, 1> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [36] = Const<[23], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [23] = BoundedInt<0, 0> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [22] = CircuitDescriptor<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [35] = Const<[3], 6> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [1] = MulMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [0] = AddMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [17] = Struct<ut@core::panics::Panic> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [16] = Array<[15]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [18] = Struct<ut@Tuple, [17], [16]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [21] = Enum<ut@core::panics::PanicResult::<(core::circuit::u384,)>, [20], [18]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [34] = Const<[15], 26913677086973030051406221357623718750637972950955665348321109348> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [15] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [14] = CircuitData<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [12] = U96Guarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [13] = Struct<ut@Tuple, [12], [12], [12], [12]> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [33] = Const<[3], 3> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [7] = Circuit<[6]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [6] = Struct<ut@Tuple, [9]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [8] = CircuitInputAccumulator<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [2] = RangeCheck96 [storable: true, drop: false, dup: false, zero_sized: false];
+            type [5] = CircuitModulus [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Struct<ut@Tuple, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [32] = Const<[3], 12> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            fn main() -> u384 {
-                let in1 = CircuitElement::<CircuitInput<0>> {};
-                let in2 = CircuitElement::<CircuitInput<1>> {};
-                let add = circuit_add(in1, in2);
+            libfunc [22] = const_as_immediate<[32]>;
+            libfunc [21] = struct_construct<[4]>;
+            libfunc [37] = store_temp<[4]>;
+            libfunc [20] = try_into_circuit_modulus;
+            libfunc [23] = branch_align;
+            libfunc [19] = init_circuit_data<[7]>;
+            libfunc [24] = const_as_immediate<[33]>;
+            libfunc [18] = into_u96_guarantee<[3]>;
+            libfunc [17] = struct_construct<[13]>;
+            libfunc [38] = store_temp<[8]>;
+            libfunc [39] = store_temp<[13]>;
+            libfunc [40] = store_temp<[2]>;
+            libfunc [16] = add_circuit_input<[7]>;
+            libfunc [25] = drop<[14]>;
+            libfunc [26] = drop<[5]>;
+            libfunc [4] = array_new<[15]>;
+            libfunc [27] = const_as_immediate<[34]>;
+            libfunc [41] = store_temp<[15]>;
+            libfunc [3] = array_append<[15]>;
+            libfunc [2] = struct_construct<[17]>;
+            libfunc [1] = struct_construct<[18]>;
+            libfunc [0] = enum_init<[21], 1>;
+            libfunc [42] = store_temp<[0]>;
+            libfunc [43] = store_temp<[1]>;
+            libfunc [44] = store_temp<[21]>;
+            libfunc [28] = const_as_immediate<[35]>;
+            libfunc [15] = get_circuit_descriptor<[7]>;
+            libfunc [29] = const_as_immediate<[36]>;
+            libfunc [30] = const_as_immediate<[37]>;
+            libfunc [45] = store_temp<[23]>;
+            libfunc [46] = store_temp<[24]>;
+            libfunc [14] = eval_circuit<[7]>;
+            libfunc [13] = get_circuit_output<[7], [9]>;
+            libfunc [9] = u96_limbs_less_than_guarantee_verify<4>;
+            libfunc [8] = u96_limbs_less_than_guarantee_verify<3>;
+            libfunc [7] = u96_limbs_less_than_guarantee_verify<2>;
+            libfunc [6] = u96_single_limb_less_than_guarantee_verify;
+            libfunc [47] = store_temp<[12]>;
+            libfunc [31] = jump;
+            libfunc [5] = u96_guarantee_verify;
+            libfunc [12] = struct_construct<[20]>;
+            libfunc [11] = enum_init<[21], 0>;
+            libfunc [32] = drop<[26]>;
+            libfunc [33] = const_as_immediate<[38]>;
+            libfunc [10] = circuit_failure_guarantee_verify;
+            libfunc [48] = store_temp<[16]>;
+            libfunc [34] = drop<[8]>;
+            libfunc [35] = const_as_immediate<[39]>;
+            libfunc [36] = const_as_immediate<[40]>;
 
-                let modulus = TryInto::<_, CircuitModulus>::try_into([12, 12, 12, 12]).unwrap();
+            [22]() -> ([3]); // 0
+            [22]() -> ([4]); // 1
+            [22]() -> ([5]); // 2
+            [22]() -> ([6]); // 3
+            [21]([3], [4], [5], [6]) -> ([7]); // 4
+            [37]([7]) -> ([7]); // 5
+            [20]([7]) { fallthrough([8]) 142() }; // 6
+            [23]() -> (); // 7
+            [19]([2]) -> ([9], [10]); // 8
+            [24]() -> ([11]); // 9
+            [18]([11]) -> ([12]); // 10
+            [24]() -> ([13]); // 11
+            [18]([13]) -> ([14]); // 12
+            [24]() -> ([15]); // 13
+            [18]([15]) -> ([16]); // 14
+            [24]() -> ([17]); // 15
+            [18]([17]) -> ([18]); // 16
+            [17]([12], [14], [16], [18]) -> ([19]); // 17
+            [38]([10]) -> ([10]); // 18
+            [39]([19]) -> ([19]); // 19
+            [40]([9]) -> ([9]); // 20
+            [16]([10], [19]) { fallthrough([20]) 37([21]) }; // 21
+            [23]() -> (); // 22
+            [25]([20]) -> (); // 23
+            [26]([8]) -> (); // 24
+            [4]() -> ([22]); // 25
+            [27]() -> ([23]); // 26
+            [41]([23]) -> ([23]); // 27
+            [3]([22], [23]) -> ([24]); // 28
+            [2]() -> ([25]); // 29
+            [1]([25], [24]) -> ([26]); // 30
+            [0]([26]) -> ([27]); // 31
+            [42]([0]) -> ([0]); // 32
+            [43]([1]) -> ([1]); // 33
+            [40]([9]) -> ([9]); // 34
+            [44]([27]) -> ([27]); // 35
+            return([0], [1], [9], [27]); // 36
+            [23]() -> (); // 37
+            [28]() -> ([28]); // 38
+            [18]([28]) -> ([29]); // 39
+            [28]() -> ([30]); // 40
+            [18]([30]) -> ([31]); // 41
+            [28]() -> ([32]); // 42
+            [18]([32]) -> ([33]); // 43
+            [28]() -> ([34]); // 44
+            [18]([34]) -> ([35]); // 45
+            [17]([29], [31], [33], [35]) -> ([36]); // 46
+            [39]([36]) -> ([36]); // 47
+            [16]([21], [36]) { fallthrough([37]) 127([38]) }; // 48
+            [23]() -> (); // 49
+            [15]() -> ([39]); // 50
+            [29]() -> ([40]); // 51
+            [30]() -> ([41]); // 52
+            [45]([40]) -> ([40]); // 53
+            [46]([41]) -> ([41]); // 54
+            [14]([0], [1], [39], [37], [8], [40], [41]) { fallthrough([42], [43], [44]) 85([45], [46], [47], [48]) }; // 55
+            [23]() -> (); // 56
+            [13]([44]) -> ([49], [50]); // 57
+            [42]([42]) -> ([42]); // 58
+            [43]([43]) -> ([43]); // 59
+            [9]([50]) { fallthrough([51]) 75([52]) }; // 60
+            [23]() -> (); // 61
+            [8]([51]) { fallthrough([53]) 72([54]) }; // 62
+            [23]() -> (); // 63
+            [7]([53]) { fallthrough([55]) 69([56]) }; // 64
+            [23]() -> (); // 65
+            [6]([55]) -> ([57]); // 66
+            [47]([57]) -> ([58]); // 67
+            [31]() { 77() }; // 68
+            [23]() -> (); // 69
+            [47]([56]) -> ([58]); // 70
+            [31]() { 77() }; // 71
+            [23]() -> (); // 72
+            [47]([54]) -> ([58]); // 73
+            [31]() { 77() }; // 74
+            [23]() -> (); // 75
+            [47]([52]) -> ([58]); // 76
+            [5]([9], [58]) -> ([59]); // 77
+            [12]([49]) -> ([60]); // 78
+            [11]([60]) -> ([61]); // 79
+            [42]([42]) -> ([42]); // 80
+            [43]([43]) -> ([43]); // 81
+            [40]([59]) -> ([59]); // 82
+            [44]([61]) -> ([61]); // 83
+            return([42], [43], [59], [61]); // 84
+            [23]() -> (); // 85
+            [32]([47]) -> (); // 86
+            [4]() -> ([62]); // 87
+            [33]() -> ([63]); // 88
+            [41]([63]) -> ([63]); // 89
+            [3]([62], [63]) -> ([64]); // 90
+            [29]() -> ([65]); // 91
+            [30]() -> ([66]); // 92
+            [43]([46]) -> ([46]); // 93
+            [45]([65]) -> ([65]); // 94
+            [46]([66]) -> ([66]); // 95
+            [10]([9], [46], [48], [65], [66]) -> ([67], [68], [69]); // 96
+            [42]([45]) -> ([45]); // 97
+            [48]([64]) -> ([64]); // 98
+            [40]([67]) -> ([67]); // 99
+            [43]([68]) -> ([68]); // 100
+            [9]([69]) { fallthrough([70]) 116([71]) }; // 101
+            [23]() -> (); // 102
+            [8]([70]) { fallthrough([72]) 113([73]) }; // 103
+            [23]() -> (); // 104
+            [7]([72]) { fallthrough([74]) 110([75]) }; // 105
+            [23]() -> (); // 106
+            [6]([74]) -> ([76]); // 107
+            [47]([76]) -> ([77]); // 108
+            [31]() { 118() }; // 109
+            [23]() -> (); // 110
+            [47]([75]) -> ([77]); // 111
+            [31]() { 118() }; // 112
+            [23]() -> (); // 113
+            [47]([73]) -> ([77]); // 114
+            [31]() { 118() }; // 115
+            [23]() -> (); // 116
+            [47]([71]) -> ([77]); // 117
+            [5]([67], [77]) -> ([78]); // 118
+            [2]() -> ([79]); // 119
+            [1]([79], [64]) -> ([80]); // 120
+            [0]([80]) -> ([81]); // 121
+            [42]([45]) -> ([45]); // 122
+            [43]([68]) -> ([68]); // 123
+            [40]([78]) -> ([78]); // 124
+            [44]([81]) -> ([81]); // 125
+            return([45], [68], [78], [81]); // 126
+            [23]() -> (); // 127
+            [34]([38]) -> (); // 128
+            [26]([8]) -> (); // 129
+            [4]() -> ([82]); // 130
+            [35]() -> ([83]); // 131
+            [41]([83]) -> ([83]); // 132
+            [3]([82], [83]) -> ([84]); // 133
+            [2]() -> ([85]); // 134
+            [1]([85], [84]) -> ([86]); // 135
+            [0]([86]) -> ([87]); // 136
+            [42]([0]) -> ([0]); // 137
+            [43]([1]) -> ([1]); // 138
+            [40]([9]) -> ([9]); // 139
+            [44]([87]) -> ([87]); // 140
+            return([0], [1], [9], [87]); // 141
+            [23]() -> (); // 142
+            [4]() -> ([88]); // 143
+            [36]() -> ([89]); // 144
+            [41]([89]) -> ([89]); // 145
+            [3]([88], [89]) -> ([90]); // 146
+            [2]() -> ([91]); // 147
+            [1]([91], [90]) -> ([92]); // 148
+            [0]([92]) -> ([93]); // 149
+            [42]([0]) -> ([0]); // 150
+            [43]([1]) -> ([1]); // 151
+            [40]([2]) -> ([2]); // 152
+            [44]([93]) -> ([93]); // 153
+            return([0], [1], [2], [93]); // 154
 
-                let outputs = (add,)
-                    .new_inputs()
-                    .next([3, 3, 3, 3])
-                    .next([6, 6, 6, 6])
-                    .done()
-                    .eval(modulus)
-                    .unwrap();
+            [0]@0([0]: [0], [1]: [1], [2]: [2]) -> ([0], [1], [2], [21]);
+        "#).map_err(|e| e.to_string()).unwrap();
 
-                outputs.get_output(add)
-            }
-        );
+        let return_value = run_sierra_program(&program, &[]).return_value;
 
-        run_program_assert_output(
-            &program,
-            "main",
-            &[],
+        assert_eq!(
             jit_enum!(0, jit_struct!(u384(["0x9", "0x9", "0x9", "0x9"]))),
+            return_value
         );
     }
 
     #[test]
     fn run_sub_circuit() {
-        let program = load_cairo!(
-            use core::circuit::{
-                RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
-                circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
-                CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
-            };
+        // use core::circuit::{
+        //     RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
+        //     circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
+        //     CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
+        // };
+        // fn main() -> u384 {
+        //     let in1 = CircuitElement::<CircuitInput<0>> {};
+        //     let in2 = CircuitElement::<CircuitInput<1>> {};
+        //     let mul = circuit_sub(in1, in2);
+        //     let modulus = TryInto::<_, CircuitModulus>::try_into([12, 12, 12, 12]).unwrap();
+        //     let outputs = (mul,)
+        //         .new_inputs()
+        //         .next([6, 6, 6, 6])
+        //         .next([3, 3, 3, 3])
+        //         .done()
+        //         .eval(modulus)
+        //         .unwrap();
+        //     outputs.get_output(mul)
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [3] = BoundedInt<0, 79228162514264337593543950335> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [40] = Const<[15], 29721761890975875353235833581453094220424382983267374> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [39] = Const<[15], 138583295661092166701491297054433349032460315956105119041111996301516236132> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [38] = Const<[15], 30828113188794245257250221355944970489240709081949230> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [19] = Struct<ut@core::circuit::u384, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [20] = Struct<ut@Tuple, [19]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [31] = U96LimbsLtGuarantee<1> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [30] = U96LimbsLtGuarantee<2> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [29] = U96LimbsLtGuarantee<3> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [9] = SubModGate<[10], [11]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [28] = U96LimbsLtGuarantee<4> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [11] = CircuitInput<1> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [10] = CircuitInput<0> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [27] = CircuitFailureGuarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [26] = CircuitPartialOutputs<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [25] = CircuitOutputs<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [37] = Const<[24], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [24] = BoundedInt<1, 1> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [36] = Const<[23], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [23] = BoundedInt<0, 0> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [22] = CircuitDescriptor<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [35] = Const<[3], 3> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [1] = MulMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [0] = AddMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [17] = Struct<ut@core::panics::Panic> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [16] = Array<[15]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [18] = Struct<ut@Tuple, [17], [16]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [21] = Enum<ut@core::panics::PanicResult::<(core::circuit::u384,)>, [20], [18]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [34] = Const<[15], 26913677086973030051406221357623718750637972950955665348321109348> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [15] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [14] = CircuitData<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [12] = U96Guarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [13] = Struct<ut@Tuple, [12], [12], [12], [12]> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [33] = Const<[3], 6> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [7] = Circuit<[6]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [6] = Struct<ut@Tuple, [9]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [8] = CircuitInputAccumulator<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [2] = RangeCheck96 [storable: true, drop: false, dup: false, zero_sized: false];
+            type [5] = CircuitModulus [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Struct<ut@Tuple, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [32] = Const<[3], 12> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            fn main() -> u384 {
-                let in1 = CircuitElement::<CircuitInput<0>> {};
-                let in2 = CircuitElement::<CircuitInput<1>> {};
-                let mul = circuit_sub(in1, in2);
+            libfunc [22] = const_as_immediate<[32]>;
+            libfunc [21] = struct_construct<[4]>;
+            libfunc [37] = store_temp<[4]>;
+            libfunc [20] = try_into_circuit_modulus;
+            libfunc [23] = branch_align;
+            libfunc [19] = init_circuit_data<[7]>;
+            libfunc [24] = const_as_immediate<[33]>;
+            libfunc [18] = into_u96_guarantee<[3]>;
+            libfunc [17] = struct_construct<[13]>;
+            libfunc [38] = store_temp<[8]>;
+            libfunc [39] = store_temp<[13]>;
+            libfunc [40] = store_temp<[2]>;
+            libfunc [16] = add_circuit_input<[7]>;
+            libfunc [25] = drop<[14]>;
+            libfunc [26] = drop<[5]>;
+            libfunc [4] = array_new<[15]>;
+            libfunc [27] = const_as_immediate<[34]>;
+            libfunc [41] = store_temp<[15]>;
+            libfunc [3] = array_append<[15]>;
+            libfunc [2] = struct_construct<[17]>;
+            libfunc [1] = struct_construct<[18]>;
+            libfunc [0] = enum_init<[21], 1>;
+            libfunc [42] = store_temp<[0]>;
+            libfunc [43] = store_temp<[1]>;
+            libfunc [44] = store_temp<[21]>;
+            libfunc [28] = const_as_immediate<[35]>;
+            libfunc [15] = get_circuit_descriptor<[7]>;
+            libfunc [29] = const_as_immediate<[36]>;
+            libfunc [30] = const_as_immediate<[37]>;
+            libfunc [45] = store_temp<[23]>;
+            libfunc [46] = store_temp<[24]>;
+            libfunc [14] = eval_circuit<[7]>;
+            libfunc [13] = get_circuit_output<[7], [9]>;
+            libfunc [9] = u96_limbs_less_than_guarantee_verify<4>;
+            libfunc [8] = u96_limbs_less_than_guarantee_verify<3>;
+            libfunc [7] = u96_limbs_less_than_guarantee_verify<2>;
+            libfunc [6] = u96_single_limb_less_than_guarantee_verify;
+            libfunc [47] = store_temp<[12]>;
+            libfunc [31] = jump;
+            libfunc [5] = u96_guarantee_verify;
+            libfunc [12] = struct_construct<[20]>;
+            libfunc [11] = enum_init<[21], 0>;
+            libfunc [32] = drop<[26]>;
+            libfunc [33] = const_as_immediate<[38]>;
+            libfunc [10] = circuit_failure_guarantee_verify;
+            libfunc [48] = store_temp<[16]>;
+            libfunc [34] = drop<[8]>;
+            libfunc [35] = const_as_immediate<[39]>;
+            libfunc [36] = const_as_immediate<[40]>;
 
-                let modulus = TryInto::<_, CircuitModulus>::try_into([12, 12, 12, 12]).unwrap();
+            [22]() -> ([3]); // 0
+            [22]() -> ([4]); // 1
+            [22]() -> ([5]); // 2
+            [22]() -> ([6]); // 3
+            [21]([3], [4], [5], [6]) -> ([7]); // 4
+            [37]([7]) -> ([7]); // 5
+            [20]([7]) { fallthrough([8]) 142() }; // 6
+            [23]() -> (); // 7
+            [19]([2]) -> ([9], [10]); // 8
+            [24]() -> ([11]); // 9
+            [18]([11]) -> ([12]); // 10
+            [24]() -> ([13]); // 11
+            [18]([13]) -> ([14]); // 12
+            [24]() -> ([15]); // 13
+            [18]([15]) -> ([16]); // 14
+            [24]() -> ([17]); // 15
+            [18]([17]) -> ([18]); // 16
+            [17]([12], [14], [16], [18]) -> ([19]); // 17
+            [38]([10]) -> ([10]); // 18
+            [39]([19]) -> ([19]); // 19
+            [40]([9]) -> ([9]); // 20
+            [16]([10], [19]) { fallthrough([20]) 37([21]) }; // 21
+            [23]() -> (); // 22
+            [25]([20]) -> (); // 23
+            [26]([8]) -> (); // 24
+            [4]() -> ([22]); // 25
+            [27]() -> ([23]); // 26
+            [41]([23]) -> ([23]); // 27
+            [3]([22], [23]) -> ([24]); // 28
+            [2]() -> ([25]); // 29
+            [1]([25], [24]) -> ([26]); // 30
+            [0]([26]) -> ([27]); // 31
+            [42]([0]) -> ([0]); // 32
+            [43]([1]) -> ([1]); // 33
+            [40]([9]) -> ([9]); // 34
+            [44]([27]) -> ([27]); // 35
+            return([0], [1], [9], [27]); // 36
+            [23]() -> (); // 37
+            [28]() -> ([28]); // 38
+            [18]([28]) -> ([29]); // 39
+            [28]() -> ([30]); // 40
+            [18]([30]) -> ([31]); // 41
+            [28]() -> ([32]); // 42
+            [18]([32]) -> ([33]); // 43
+            [28]() -> ([34]); // 44
+            [18]([34]) -> ([35]); // 45
+            [17]([29], [31], [33], [35]) -> ([36]); // 46
+            [39]([36]) -> ([36]); // 47
+            [16]([21], [36]) { fallthrough([37]) 127([38]) }; // 48
+            [23]() -> (); // 49
+            [15]() -> ([39]); // 50
+            [29]() -> ([40]); // 51
+            [30]() -> ([41]); // 52
+            [45]([40]) -> ([40]); // 53
+            [46]([41]) -> ([41]); // 54
+            [14]([0], [1], [39], [37], [8], [40], [41]) { fallthrough([42], [43], [44]) 85([45], [46], [47], [48]) }; // 55
+            [23]() -> (); // 56
+            [13]([44]) -> ([49], [50]); // 57
+            [42]([42]) -> ([42]); // 58
+            [43]([43]) -> ([43]); // 59
+            [9]([50]) { fallthrough([51]) 75([52]) }; // 60
+            [23]() -> (); // 61
+            [8]([51]) { fallthrough([53]) 72([54]) }; // 62
+            [23]() -> (); // 63
+            [7]([53]) { fallthrough([55]) 69([56]) }; // 64
+            [23]() -> (); // 65
+            [6]([55]) -> ([57]); // 66
+            [47]([57]) -> ([58]); // 67
+            [31]() { 77() }; // 68
+            [23]() -> (); // 69
+            [47]([56]) -> ([58]); // 70
+            [31]() { 77() }; // 71
+            [23]() -> (); // 72
+            [47]([54]) -> ([58]); // 73
+            [31]() { 77() }; // 74
+            [23]() -> (); // 75
+            [47]([52]) -> ([58]); // 76
+            [5]([9], [58]) -> ([59]); // 77
+            [12]([49]) -> ([60]); // 78
+            [11]([60]) -> ([61]); // 79
+            [42]([42]) -> ([42]); // 80
+            [43]([43]) -> ([43]); // 81
+            [40]([59]) -> ([59]); // 82
+            [44]([61]) -> ([61]); // 83
+            return([42], [43], [59], [61]); // 84
+            [23]() -> (); // 85
+            [32]([47]) -> (); // 86
+            [4]() -> ([62]); // 87
+            [33]() -> ([63]); // 88
+            [41]([63]) -> ([63]); // 89
+            [3]([62], [63]) -> ([64]); // 90
+            [29]() -> ([65]); // 91
+            [30]() -> ([66]); // 92
+            [43]([46]) -> ([46]); // 93
+            [45]([65]) -> ([65]); // 94
+            [46]([66]) -> ([66]); // 95
+            [10]([9], [46], [48], [65], [66]) -> ([67], [68], [69]); // 96
+            [42]([45]) -> ([45]); // 97
+            [48]([64]) -> ([64]); // 98
+            [40]([67]) -> ([67]); // 99
+            [43]([68]) -> ([68]); // 100
+            [9]([69]) { fallthrough([70]) 116([71]) }; // 101
+            [23]() -> (); // 102
+            [8]([70]) { fallthrough([72]) 113([73]) }; // 103
+            [23]() -> (); // 104
+            [7]([72]) { fallthrough([74]) 110([75]) }; // 105
+            [23]() -> (); // 106
+            [6]([74]) -> ([76]); // 107
+            [47]([76]) -> ([77]); // 108
+            [31]() { 118() }; // 109
+            [23]() -> (); // 110
+            [47]([75]) -> ([77]); // 111
+            [31]() { 118() }; // 112
+            [23]() -> (); // 113
+            [47]([73]) -> ([77]); // 114
+            [31]() { 118() }; // 115
+            [23]() -> (); // 116
+            [47]([71]) -> ([77]); // 117
+            [5]([67], [77]) -> ([78]); // 118
+            [2]() -> ([79]); // 119
+            [1]([79], [64]) -> ([80]); // 120
+            [0]([80]) -> ([81]); // 121
+            [42]([45]) -> ([45]); // 122
+            [43]([68]) -> ([68]); // 123
+            [40]([78]) -> ([78]); // 124
+            [44]([81]) -> ([81]); // 125
+            return([45], [68], [78], [81]); // 126
+            [23]() -> (); // 127
+            [34]([38]) -> (); // 128
+            [26]([8]) -> (); // 129
+            [4]() -> ([82]); // 130
+            [35]() -> ([83]); // 131
+            [41]([83]) -> ([83]); // 132
+            [3]([82], [83]) -> ([84]); // 133
+            [2]() -> ([85]); // 134
+            [1]([85], [84]) -> ([86]); // 135
+            [0]([86]) -> ([87]); // 136
+            [42]([0]) -> ([0]); // 137
+            [43]([1]) -> ([1]); // 138
+            [40]([9]) -> ([9]); // 139
+            [44]([87]) -> ([87]); // 140
+            return([0], [1], [9], [87]); // 141
+            [23]() -> (); // 142
+            [4]() -> ([88]); // 143
+            [36]() -> ([89]); // 144
+            [41]([89]) -> ([89]); // 145
+            [3]([88], [89]) -> ([90]); // 146
+            [2]() -> ([91]); // 147
+            [1]([91], [90]) -> ([92]); // 148
+            [0]([92]) -> ([93]); // 149
+            [42]([0]) -> ([0]); // 150
+            [43]([1]) -> ([1]); // 151
+            [40]([2]) -> ([2]); // 152
+            [44]([93]) -> ([93]); // 153
+            return([0], [1], [2], [93]); // 154
 
-                let outputs = (mul,)
-                    .new_inputs()
-                    .next([6, 6, 6, 6])
-                    .next([3, 3, 3, 3])
-                    .done()
-                    .eval(modulus)
-                    .unwrap();
+            [0]@0([0]: [0], [1]: [1], [2]: [2]) -> ([0], [1], [2], [21]);
+        "#).map_err(|e| e.to_string()).unwrap();
 
-                outputs.get_output(mul)
-            }
-        );
+        let return_value = run_sierra_program(&program, &[]).return_value;
 
-        run_program_assert_output(
-            &program,
-            "main",
-            &[],
+        assert_eq!(
             jit_enum!(0, jit_struct!(u384(["0x3", "0x3", "0x3", "0x3"]))),
+            return_value
         );
     }
 
     #[test]
     fn run_mul_circuit() {
-        let program = load_cairo!(
-            use core::circuit::{
-                RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
-                circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
-                CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
-            };
+        // use core::circuit::{
+        //     RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
+        //     circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
+        //     CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
+        // };
+        // fn main() -> u384 {
+        //     let in1 = CircuitElement::<CircuitInput<0>> {};
+        //     let in2 = CircuitElement::<CircuitInput<1>> {};
+        //     let mul = circuit_mul(in1, in2);
+        //     let modulus = TryInto::<_, CircuitModulus>::try_into([12, 12, 12, 12]).unwrap();
+        //     let outputs = (mul,)
+        //         .new_inputs()
+        //         .next([3, 0, 0, 0])
+        //         .next([3, 3, 3, 3])
+        //         .done()
+        //         .eval(modulus)
+        //         .unwrap();
+        //     outputs.get_output(mul)
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [3] = BoundedInt<0, 79228162514264337593543950335> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [40] = Const<[15], 29721761890975875353235833581453094220424382983267374> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [39] = Const<[15], 138583295661092166701491297054433349032460315956105119041111996301516236132> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [38] = Const<[15], 30828113188794245257250221355944970489240709081949230> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [19] = Struct<ut@core::circuit::u384, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [20] = Struct<ut@Tuple, [19]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [31] = U96LimbsLtGuarantee<1> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [30] = U96LimbsLtGuarantee<2> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [29] = U96LimbsLtGuarantee<3> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [9] = MulModGate<[10], [11]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [28] = U96LimbsLtGuarantee<4> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [11] = CircuitInput<1> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [10] = CircuitInput<0> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [27] = CircuitFailureGuarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [26] = CircuitPartialOutputs<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [25] = CircuitOutputs<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [37] = Const<[24], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [24] = BoundedInt<1, 1> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [36] = Const<[23], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [23] = BoundedInt<0, 0> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [22] = CircuitDescriptor<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = MulMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [0] = AddMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [17] = Struct<ut@core::panics::Panic> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [16] = Array<[15]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [18] = Struct<ut@Tuple, [17], [16]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [21] = Enum<ut@core::panics::PanicResult::<(core::circuit::u384,)>, [20], [18]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [35] = Const<[15], 26913677086973030051406221357623718750637972950955665348321109348> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [15] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [14] = CircuitData<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [12] = U96Guarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [13] = Struct<ut@Tuple, [12], [12], [12], [12]> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [34] = Const<[3], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [33] = Const<[3], 3> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [7] = Circuit<[6]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [6] = Struct<ut@Tuple, [9]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [8] = CircuitInputAccumulator<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [2] = RangeCheck96 [storable: true, drop: false, dup: false, zero_sized: false];
+            type [5] = CircuitModulus [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Struct<ut@Tuple, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [32] = Const<[3], 12> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            fn main() -> u384 {
-                let in1 = CircuitElement::<CircuitInput<0>> {};
-                let in2 = CircuitElement::<CircuitInput<1>> {};
-                let mul = circuit_mul(in1, in2);
+            libfunc [22] = const_as_immediate<[32]>;
+            libfunc [21] = struct_construct<[4]>;
+            libfunc [37] = store_temp<[4]>;
+            libfunc [20] = try_into_circuit_modulus;
+            libfunc [23] = branch_align;
+            libfunc [19] = init_circuit_data<[7]>;
+            libfunc [24] = const_as_immediate<[33]>;
+            libfunc [18] = into_u96_guarantee<[3]>;
+            libfunc [25] = const_as_immediate<[34]>;
+            libfunc [17] = struct_construct<[13]>;
+            libfunc [38] = store_temp<[8]>;
+            libfunc [39] = store_temp<[13]>;
+            libfunc [40] = store_temp<[2]>;
+            libfunc [16] = add_circuit_input<[7]>;
+            libfunc [26] = drop<[14]>;
+            libfunc [27] = drop<[5]>;
+            libfunc [4] = array_new<[15]>;
+            libfunc [28] = const_as_immediate<[35]>;
+            libfunc [41] = store_temp<[15]>;
+            libfunc [3] = array_append<[15]>;
+            libfunc [2] = struct_construct<[17]>;
+            libfunc [1] = struct_construct<[18]>;
+            libfunc [0] = enum_init<[21], 1>;
+            libfunc [42] = store_temp<[0]>;
+            libfunc [43] = store_temp<[1]>;
+            libfunc [44] = store_temp<[21]>;
+            libfunc [15] = get_circuit_descriptor<[7]>;
+            libfunc [29] = const_as_immediate<[36]>;
+            libfunc [30] = const_as_immediate<[37]>;
+            libfunc [45] = store_temp<[23]>;
+            libfunc [46] = store_temp<[24]>;
+            libfunc [14] = eval_circuit<[7]>;
+            libfunc [13] = get_circuit_output<[7], [9]>;
+            libfunc [9] = u96_limbs_less_than_guarantee_verify<4>;
+            libfunc [8] = u96_limbs_less_than_guarantee_verify<3>;
+            libfunc [7] = u96_limbs_less_than_guarantee_verify<2>;
+            libfunc [6] = u96_single_limb_less_than_guarantee_verify;
+            libfunc [47] = store_temp<[12]>;
+            libfunc [31] = jump;
+            libfunc [5] = u96_guarantee_verify;
+            libfunc [12] = struct_construct<[20]>;
+            libfunc [11] = enum_init<[21], 0>;
+            libfunc [32] = drop<[26]>;
+            libfunc [33] = const_as_immediate<[38]>;
+            libfunc [10] = circuit_failure_guarantee_verify;
+            libfunc [48] = store_temp<[16]>;
+            libfunc [34] = drop<[8]>;
+            libfunc [35] = const_as_immediate<[39]>;
+            libfunc [36] = const_as_immediate<[40]>;
 
-                let modulus = TryInto::<_, CircuitModulus>::try_into([12, 12, 12, 12]).unwrap();
+            [22]() -> ([3]); // 0
+            [22]() -> ([4]); // 1
+            [22]() -> ([5]); // 2
+            [22]() -> ([6]); // 3
+            [21]([3], [4], [5], [6]) -> ([7]); // 4
+            [37]([7]) -> ([7]); // 5
+            [20]([7]) { fallthrough([8]) 142() }; // 6
+            [23]() -> (); // 7
+            [19]([2]) -> ([9], [10]); // 8
+            [24]() -> ([11]); // 9
+            [18]([11]) -> ([12]); // 10
+            [25]() -> ([13]); // 11
+            [18]([13]) -> ([14]); // 12
+            [25]() -> ([15]); // 13
+            [18]([15]) -> ([16]); // 14
+            [25]() -> ([17]); // 15
+            [18]([17]) -> ([18]); // 16
+            [17]([12], [14], [16], [18]) -> ([19]); // 17
+            [38]([10]) -> ([10]); // 18
+            [39]([19]) -> ([19]); // 19
+            [40]([9]) -> ([9]); // 20
+            [16]([10], [19]) { fallthrough([20]) 37([21]) }; // 21
+            [23]() -> (); // 22
+            [26]([20]) -> (); // 23
+            [27]([8]) -> (); // 24
+            [4]() -> ([22]); // 25
+            [28]() -> ([23]); // 26
+            [41]([23]) -> ([23]); // 27
+            [3]([22], [23]) -> ([24]); // 28
+            [2]() -> ([25]); // 29
+            [1]([25], [24]) -> ([26]); // 30
+            [0]([26]) -> ([27]); // 31
+            [42]([0]) -> ([0]); // 32
+            [43]([1]) -> ([1]); // 33
+            [40]([9]) -> ([9]); // 34
+            [44]([27]) -> ([27]); // 35
+            return([0], [1], [9], [27]); // 36
+            [23]() -> (); // 37
+            [24]() -> ([28]); // 38
+            [18]([28]) -> ([29]); // 39
+            [24]() -> ([30]); // 40
+            [18]([30]) -> ([31]); // 41
+            [24]() -> ([32]); // 42
+            [18]([32]) -> ([33]); // 43
+            [24]() -> ([34]); // 44
+            [18]([34]) -> ([35]); // 45
+            [17]([29], [31], [33], [35]) -> ([36]); // 46
+            [39]([36]) -> ([36]); // 47
+            [16]([21], [36]) { fallthrough([37]) 127([38]) }; // 48
+            [23]() -> (); // 49
+            [15]() -> ([39]); // 50
+            [29]() -> ([40]); // 51
+            [30]() -> ([41]); // 52
+            [45]([40]) -> ([40]); // 53
+            [46]([41]) -> ([41]); // 54
+            [14]([0], [1], [39], [37], [8], [40], [41]) { fallthrough([42], [43], [44]) 85([45], [46], [47], [48]) }; // 55
+            [23]() -> (); // 56
+            [13]([44]) -> ([49], [50]); // 57
+            [42]([42]) -> ([42]); // 58
+            [43]([43]) -> ([43]); // 59
+            [9]([50]) { fallthrough([51]) 75([52]) }; // 60
+            [23]() -> (); // 61
+            [8]([51]) { fallthrough([53]) 72([54]) }; // 62
+            [23]() -> (); // 63
+            [7]([53]) { fallthrough([55]) 69([56]) }; // 64
+            [23]() -> (); // 65
+            [6]([55]) -> ([57]); // 66
+            [47]([57]) -> ([58]); // 67
+            [31]() { 77() }; // 68
+            [23]() -> (); // 69
+            [47]([56]) -> ([58]); // 70
+            [31]() { 77() }; // 71
+            [23]() -> (); // 72
+            [47]([54]) -> ([58]); // 73
+            [31]() { 77() }; // 74
+            [23]() -> (); // 75
+            [47]([52]) -> ([58]); // 76
+            [5]([9], [58]) -> ([59]); // 77
+            [12]([49]) -> ([60]); // 78
+            [11]([60]) -> ([61]); // 79
+            [42]([42]) -> ([42]); // 80
+            [43]([43]) -> ([43]); // 81
+            [40]([59]) -> ([59]); // 82
+            [44]([61]) -> ([61]); // 83
+            return([42], [43], [59], [61]); // 84
+            [23]() -> (); // 85
+            [32]([47]) -> (); // 86
+            [4]() -> ([62]); // 87
+            [33]() -> ([63]); // 88
+            [41]([63]) -> ([63]); // 89
+            [3]([62], [63]) -> ([64]); // 90
+            [29]() -> ([65]); // 91
+            [30]() -> ([66]); // 92
+            [43]([46]) -> ([46]); // 93
+            [45]([65]) -> ([65]); // 94
+            [46]([66]) -> ([66]); // 95
+            [10]([9], [46], [48], [65], [66]) -> ([67], [68], [69]); // 96
+            [42]([45]) -> ([45]); // 97
+            [48]([64]) -> ([64]); // 98
+            [40]([67]) -> ([67]); // 99
+            [43]([68]) -> ([68]); // 100
+            [9]([69]) { fallthrough([70]) 116([71]) }; // 101
+            [23]() -> (); // 102
+            [8]([70]) { fallthrough([72]) 113([73]) }; // 103
+            [23]() -> (); // 104
+            [7]([72]) { fallthrough([74]) 110([75]) }; // 105
+            [23]() -> (); // 106
+            [6]([74]) -> ([76]); // 107
+            [47]([76]) -> ([77]); // 108
+            [31]() { 118() }; // 109
+            [23]() -> (); // 110
+            [47]([75]) -> ([77]); // 111
+            [31]() { 118() }; // 112
+            [23]() -> (); // 113
+            [47]([73]) -> ([77]); // 114
+            [31]() { 118() }; // 115
+            [23]() -> (); // 116
+            [47]([71]) -> ([77]); // 117
+            [5]([67], [77]) -> ([78]); // 118
+            [2]() -> ([79]); // 119
+            [1]([79], [64]) -> ([80]); // 120
+            [0]([80]) -> ([81]); // 121
+            [42]([45]) -> ([45]); // 122
+            [43]([68]) -> ([68]); // 123
+            [40]([78]) -> ([78]); // 124
+            [44]([81]) -> ([81]); // 125
+            return([45], [68], [78], [81]); // 126
+            [23]() -> (); // 127
+            [34]([38]) -> (); // 128
+            [27]([8]) -> (); // 129
+            [4]() -> ([82]); // 130
+            [35]() -> ([83]); // 131
+            [41]([83]) -> ([83]); // 132
+            [3]([82], [83]) -> ([84]); // 133
+            [2]() -> ([85]); // 134
+            [1]([85], [84]) -> ([86]); // 135
+            [0]([86]) -> ([87]); // 136
+            [42]([0]) -> ([0]); // 137
+            [43]([1]) -> ([1]); // 138
+            [40]([9]) -> ([9]); // 139
+            [44]([87]) -> ([87]); // 140
+            return([0], [1], [9], [87]); // 141
+            [23]() -> (); // 142
+            [4]() -> ([88]); // 143
+            [36]() -> ([89]); // 144
+            [41]([89]) -> ([89]); // 145
+            [3]([88], [89]) -> ([90]); // 146
+            [2]() -> ([91]); // 147
+            [1]([91], [90]) -> ([92]); // 148
+            [0]([92]) -> ([93]); // 149
+            [42]([0]) -> ([0]); // 150
+            [43]([1]) -> ([1]); // 151
+            [40]([2]) -> ([2]); // 152
+            [44]([93]) -> ([93]); // 153
+            return([0], [1], [2], [93]); // 154
 
-                let outputs = (mul,)
-                    .new_inputs()
-                    .next([3, 0, 0, 0])
-                    .next([3, 3, 3, 3])
-                    .done()
-                    .eval(modulus)
-                    .unwrap();
+            [0]@0([0]: [0], [1]: [1], [2]: [2]) -> ([0], [1], [2], [21]);
+        "#).map_err(|e| e.to_string()).unwrap();
 
-                outputs.get_output(mul)
-            }
-        );
+        let return_value = run_sierra_program(&program, &[]).return_value;
 
-        run_program_assert_output(
-            &program,
-            "main",
-            &[],
+        assert_eq!(
             jit_enum!(0, jit_struct!(u384(["0x9", "0x9", "0x9", "0x9"]))),
+            return_value
         );
     }
 
     #[test]
     fn run_inverse_circuit() {
-        let program = load_cairo!(
-            use core::circuit::{
-                RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
-                circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
-                CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
-            };
+        // use core::circuit::{
+        //     RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
+        //     circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
+        //     CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
+        // };
+        // fn main() -> u384 {
+        //     let in1 = CircuitElement::<CircuitInput<0>> {};
+        //     let inv = circuit_inverse(in1);
+        //     let modulus = TryInto::<_, CircuitModulus>::try_into([11, 0, 0, 0]).unwrap();
+        //     let outputs = (inv,)
+        //         .new_inputs()
+        //         .next([2, 0, 0, 0])
+        //         .done()
+        //         .eval(modulus)
+        //         .unwrap();
+        //     outputs.get_output(inv)
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [3] = BoundedInt<0, 79228162514264337593543950335> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [38] = Const<[27], 29721761890975875353235833581453094220424382983267374> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [37] = Const<[27], 138583295661092166701491297054433349032460315956105119041111996301516236132> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [26] = Struct<ut@core::panics::Panic> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [28] = Array<[27]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [29] = Struct<ut@Tuple, [26], [28]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [36] = Const<[27], 30828113188794245257250221355944970489240709081949230> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [27] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [20] = Struct<ut@core::circuit::u384, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [25] = Struct<ut@Tuple, [20]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [30] = Enum<ut@core::panics::PanicResult::<(core::circuit::u384,)>, [25], [29]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [24] = U96LimbsLtGuarantee<1> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [23] = U96LimbsLtGuarantee<2> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [22] = U96LimbsLtGuarantee<3> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [9] = InverseGate<[10]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [21] = U96LimbsLtGuarantee<4> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [10] = CircuitInput<0> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [19] = CircuitFailureGuarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [18] = CircuitPartialOutputs<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [17] = CircuitOutputs<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = MulMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [0] = AddMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [35] = Const<[16], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [16] = BoundedInt<1, 1> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [34] = Const<[15], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [15] = BoundedInt<0, 0> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [14] = CircuitDescriptor<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [13] = CircuitData<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [11] = U96Guarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [12] = Struct<ut@Tuple, [11], [11], [11], [11]> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [33] = Const<[3], 2> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [7] = Circuit<[6]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [6] = Struct<ut@Tuple, [9]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [8] = CircuitInputAccumulator<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [2] = RangeCheck96 [storable: true, drop: false, dup: false, zero_sized: false];
+            type [5] = CircuitModulus [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Struct<ut@Tuple, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [32] = Const<[3], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [31] = Const<[3], 11> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            fn main() -> u384 {
-                let in1 = CircuitElement::<CircuitInput<0>> {};
-                let inv = circuit_inverse(in1);
+            libfunc [22] = const_as_immediate<[31]>;
+            libfunc [23] = const_as_immediate<[32]>;
+            libfunc [21] = struct_construct<[4]>;
+            libfunc [35] = store_temp<[4]>;
+            libfunc [20] = try_into_circuit_modulus;
+            libfunc [24] = branch_align;
+            libfunc [19] = init_circuit_data<[7]>;
+            libfunc [25] = const_as_immediate<[33]>;
+            libfunc [18] = into_u96_guarantee<[3]>;
+            libfunc [17] = struct_construct<[12]>;
+            libfunc [36] = store_temp<[8]>;
+            libfunc [37] = store_temp<[12]>;
+            libfunc [38] = store_temp<[2]>;
+            libfunc [16] = add_circuit_input<[7]>;
+            libfunc [15] = get_circuit_descriptor<[7]>;
+            libfunc [26] = const_as_immediate<[34]>;
+            libfunc [27] = const_as_immediate<[35]>;
+            libfunc [39] = store_temp<[15]>;
+            libfunc [40] = store_temp<[16]>;
+            libfunc [14] = eval_circuit<[7]>;
+            libfunc [13] = get_circuit_output<[7], [9]>;
+            libfunc [41] = store_temp<[0]>;
+            libfunc [42] = store_temp<[1]>;
+            libfunc [9] = u96_limbs_less_than_guarantee_verify<4>;
+            libfunc [8] = u96_limbs_less_than_guarantee_verify<3>;
+            libfunc [7] = u96_limbs_less_than_guarantee_verify<2>;
+            libfunc [6] = u96_single_limb_less_than_guarantee_verify;
+            libfunc [43] = store_temp<[11]>;
+            libfunc [28] = jump;
+            libfunc [5] = u96_guarantee_verify;
+            libfunc [12] = struct_construct<[25]>;
+            libfunc [11] = enum_init<[30], 0>;
+            libfunc [44] = store_temp<[30]>;
+            libfunc [29] = drop<[18]>;
+            libfunc [4] = array_new<[27]>;
+            libfunc [30] = const_as_immediate<[36]>;
+            libfunc [45] = store_temp<[27]>;
+            libfunc [3] = array_append<[27]>;
+            libfunc [10] = circuit_failure_guarantee_verify;
+            libfunc [46] = store_temp<[28]>;
+            libfunc [2] = struct_construct<[26]>;
+            libfunc [1] = struct_construct<[29]>;
+            libfunc [0] = enum_init<[30], 1>;
+            libfunc [31] = drop<[8]>;
+            libfunc [32] = drop<[5]>;
+            libfunc [33] = const_as_immediate<[37]>;
+            libfunc [34] = const_as_immediate<[38]>;
 
-                let modulus = TryInto::<_, CircuitModulus>::try_into([11, 0, 0, 0]).unwrap();
+            [22]() -> ([3]); // 0
+            [23]() -> ([4]); // 1
+            [23]() -> ([5]); // 2
+            [23]() -> ([6]); // 3
+            [21]([3], [4], [5], [6]) -> ([7]); // 4
+            [35]([7]) -> ([7]); // 5
+            [20]([7]) { fallthrough([8]) 115() }; // 6
+            [24]() -> (); // 7
+            [19]([2]) -> ([9], [10]); // 8
+            [25]() -> ([11]); // 9
+            [18]([11]) -> ([12]); // 10
+            [23]() -> ([13]); // 11
+            [18]([13]) -> ([14]); // 12
+            [23]() -> ([15]); // 13
+            [18]([15]) -> ([16]); // 14
+            [23]() -> ([17]); // 15
+            [18]([17]) -> ([18]); // 16
+            [17]([12], [14], [16], [18]) -> ([19]); // 17
+            [36]([10]) -> ([10]); // 18
+            [37]([19]) -> ([19]); // 19
+            [38]([9]) -> ([9]); // 20
+            [16]([10], [19]) { fallthrough([20]) 100([21]) }; // 21
+            [24]() -> (); // 22
+            [15]() -> ([22]); // 23
+            [26]() -> ([23]); // 24
+            [27]() -> ([24]); // 25
+            [39]([23]) -> ([23]); // 26
+            [40]([24]) -> ([24]); // 27
+            [14]([0], [1], [22], [20], [8], [23], [24]) { fallthrough([25], [26], [27]) 58([28], [29], [30], [31]) }; // 28
+            [24]() -> (); // 29
+            [13]([27]) -> ([32], [33]); // 30
+            [41]([25]) -> ([25]); // 31
+            [42]([26]) -> ([26]); // 32
+            [9]([33]) { fallthrough([34]) 48([35]) }; // 33
+            [24]() -> (); // 34
+            [8]([34]) { fallthrough([36]) 45([37]) }; // 35
+            [24]() -> (); // 36
+            [7]([36]) { fallthrough([38]) 42([39]) }; // 37
+            [24]() -> (); // 38
+            [6]([38]) -> ([40]); // 39
+            [43]([40]) -> ([41]); // 40
+            [28]() { 50() }; // 41
+            [24]() -> (); // 42
+            [43]([39]) -> ([41]); // 43
+            [28]() { 50() }; // 44
+            [24]() -> (); // 45
+            [43]([37]) -> ([41]); // 46
+            [28]() { 50() }; // 47
+            [24]() -> (); // 48
+            [43]([35]) -> ([41]); // 49
+            [5]([9], [41]) -> ([42]); // 50
+            [12]([32]) -> ([43]); // 51
+            [11]([43]) -> ([44]); // 52
+            [41]([25]) -> ([25]); // 53
+            [42]([26]) -> ([26]); // 54
+            [38]([42]) -> ([42]); // 55
+            [44]([44]) -> ([44]); // 56
+            return([25], [26], [42], [44]); // 57
+            [24]() -> (); // 58
+            [29]([30]) -> (); // 59
+            [4]() -> ([45]); // 60
+            [30]() -> ([46]); // 61
+            [45]([46]) -> ([46]); // 62
+            [3]([45], [46]) -> ([47]); // 63
+            [26]() -> ([48]); // 64
+            [27]() -> ([49]); // 65
+            [42]([29]) -> ([29]); // 66
+            [39]([48]) -> ([48]); // 67
+            [40]([49]) -> ([49]); // 68
+            [10]([9], [29], [31], [48], [49]) -> ([50], [51], [52]); // 69
+            [41]([28]) -> ([28]); // 70
+            [46]([47]) -> ([47]); // 71
+            [38]([50]) -> ([50]); // 72
+            [42]([51]) -> ([51]); // 73
+            [9]([52]) { fallthrough([53]) 89([54]) }; // 74
+            [24]() -> (); // 75
+            [8]([53]) { fallthrough([55]) 86([56]) }; // 76
+            [24]() -> (); // 77
+            [7]([55]) { fallthrough([57]) 83([58]) }; // 78
+            [24]() -> (); // 79
+            [6]([57]) -> ([59]); // 80
+            [43]([59]) -> ([60]); // 81
+            [28]() { 91() }; // 82
+            [24]() -> (); // 83
+            [43]([58]) -> ([60]); // 84
+            [28]() { 91() }; // 85
+            [24]() -> (); // 86
+            [43]([56]) -> ([60]); // 87
+            [28]() { 91() }; // 88
+            [24]() -> (); // 89
+            [43]([54]) -> ([60]); // 90
+            [5]([50], [60]) -> ([61]); // 91
+            [2]() -> ([62]); // 92
+            [1]([62], [47]) -> ([63]); // 93
+            [0]([63]) -> ([64]); // 94
+            [41]([28]) -> ([28]); // 95
+            [42]([51]) -> ([51]); // 96
+            [38]([61]) -> ([61]); // 97
+            [44]([64]) -> ([64]); // 98
+            return([28], [51], [61], [64]); // 99
+            [24]() -> (); // 100
+            [31]([21]) -> (); // 101
+            [32]([8]) -> (); // 102
+            [4]() -> ([65]); // 103
+            [33]() -> ([66]); // 104
+            [45]([66]) -> ([66]); // 105
+            [3]([65], [66]) -> ([67]); // 106
+            [2]() -> ([68]); // 107
+            [1]([68], [67]) -> ([69]); // 108
+            [0]([69]) -> ([70]); // 109
+            [41]([0]) -> ([0]); // 110
+            [42]([1]) -> ([1]); // 111
+            [38]([9]) -> ([9]); // 112
+            [44]([70]) -> ([70]); // 113
+            return([0], [1], [9], [70]); // 114
+            [24]() -> (); // 115
+            [4]() -> ([71]); // 116
+            [34]() -> ([72]); // 117
+            [45]([72]) -> ([72]); // 118
+            [3]([71], [72]) -> ([73]); // 119
+            [2]() -> ([74]); // 120
+            [1]([74], [73]) -> ([75]); // 121
+            [0]([75]) -> ([76]); // 122
+            [41]([0]) -> ([0]); // 123
+            [42]([1]) -> ([1]); // 124
+            [38]([2]) -> ([2]); // 125
+            [44]([76]) -> ([76]); // 126
+            return([0], [1], [2], [76]); // 127
 
-                let outputs = (inv,)
-                    .new_inputs()
-                    .next([2, 0, 0, 0])
-                    .done()
-                    .eval(modulus)
-                    .unwrap();
+            [0]@0([0]: [0], [1]: [1], [2]: [2]) -> ([0], [1], [2], [30]);
+        "#).map_err(|e| e.to_string()).unwrap();
 
-                outputs.get_output(inv)
-            }
-        );
+        let return_value = run_sierra_program(&program, &[]).return_value;
 
-        run_program_assert_output(
-            &program,
-            "main",
-            &[],
+        assert_eq!(
             jit_enum!(0, jit_struct!(u384(["0x6", "0x0", "0x0", "0x0"]))),
+            return_value
         );
     }
 
     #[test]
     fn run_no_coprime_circuit() {
-        let program = load_cairo!(
-            use core::circuit::{
-                RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
-                circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
-                CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
-            };
+        // use core::circuit::{
+        //     RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
+        //     circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
+        //     CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
+        // };
+        // fn main() -> u384 {
+        //     let in1 = CircuitElement::<CircuitInput<0>> {};
+        //     let inv = circuit_inverse(in1);
+        //     let modulus = TryInto::<_, CircuitModulus>::try_into([12, 0, 0, 0]).unwrap();
+        //     let outputs = (inv,)
+        //         .new_inputs()
+        //         .next([3, 0, 0, 0])
+        //         .done()
+        //         .eval(modulus)
+        //         .unwrap();
+        //     outputs.get_output(inv)
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [3] = BoundedInt<0, 79228162514264337593543950335> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [38] = Const<[27], 29721761890975875353235833581453094220424382983267374> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [37] = Const<[27], 138583295661092166701491297054433349032460315956105119041111996301516236132> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [26] = Struct<ut@core::panics::Panic> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [28] = Array<[27]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [29] = Struct<ut@Tuple, [26], [28]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [36] = Const<[27], 30828113188794245257250221355944970489240709081949230> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [27] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [20] = Struct<ut@core::circuit::u384, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [25] = Struct<ut@Tuple, [20]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [30] = Enum<ut@core::panics::PanicResult::<(core::circuit::u384,)>, [25], [29]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [24] = U96LimbsLtGuarantee<1> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [23] = U96LimbsLtGuarantee<2> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [22] = U96LimbsLtGuarantee<3> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [9] = InverseGate<[10]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [21] = U96LimbsLtGuarantee<4> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [10] = CircuitInput<0> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [19] = CircuitFailureGuarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [18] = CircuitPartialOutputs<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [17] = CircuitOutputs<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = MulMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [0] = AddMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [35] = Const<[16], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [16] = BoundedInt<1, 1> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [34] = Const<[15], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [15] = BoundedInt<0, 0> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [14] = CircuitDescriptor<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [13] = CircuitData<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [11] = U96Guarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [12] = Struct<ut@Tuple, [11], [11], [11], [11]> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [33] = Const<[3], 3> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [7] = Circuit<[6]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [6] = Struct<ut@Tuple, [9]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [8] = CircuitInputAccumulator<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [2] = RangeCheck96 [storable: true, drop: false, dup: false, zero_sized: false];
+            type [5] = CircuitModulus [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Struct<ut@Tuple, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [32] = Const<[3], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [31] = Const<[3], 12> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            fn main() -> u384 {
-                let in1 = CircuitElement::<CircuitInput<0>> {};
-                let inv = circuit_inverse(in1);
+            libfunc [22] = const_as_immediate<[31]>;
+            libfunc [23] = const_as_immediate<[32]>;
+            libfunc [21] = struct_construct<[4]>;
+            libfunc [35] = store_temp<[4]>;
+            libfunc [20] = try_into_circuit_modulus;
+            libfunc [24] = branch_align;
+            libfunc [19] = init_circuit_data<[7]>;
+            libfunc [25] = const_as_immediate<[33]>;
+            libfunc [18] = into_u96_guarantee<[3]>;
+            libfunc [17] = struct_construct<[12]>;
+            libfunc [36] = store_temp<[8]>;
+            libfunc [37] = store_temp<[12]>;
+            libfunc [38] = store_temp<[2]>;
+            libfunc [16] = add_circuit_input<[7]>;
+            libfunc [15] = get_circuit_descriptor<[7]>;
+            libfunc [26] = const_as_immediate<[34]>;
+            libfunc [27] = const_as_immediate<[35]>;
+            libfunc [39] = store_temp<[15]>;
+            libfunc [40] = store_temp<[16]>;
+            libfunc [14] = eval_circuit<[7]>;
+            libfunc [13] = get_circuit_output<[7], [9]>;
+            libfunc [41] = store_temp<[0]>;
+            libfunc [42] = store_temp<[1]>;
+            libfunc [9] = u96_limbs_less_than_guarantee_verify<4>;
+            libfunc [8] = u96_limbs_less_than_guarantee_verify<3>;
+            libfunc [7] = u96_limbs_less_than_guarantee_verify<2>;
+            libfunc [6] = u96_single_limb_less_than_guarantee_verify;
+            libfunc [43] = store_temp<[11]>;
+            libfunc [28] = jump;
+            libfunc [5] = u96_guarantee_verify;
+            libfunc [12] = struct_construct<[25]>;
+            libfunc [11] = enum_init<[30], 0>;
+            libfunc [44] = store_temp<[30]>;
+            libfunc [29] = drop<[18]>;
+            libfunc [4] = array_new<[27]>;
+            libfunc [30] = const_as_immediate<[36]>;
+            libfunc [45] = store_temp<[27]>;
+            libfunc [3] = array_append<[27]>;
+            libfunc [10] = circuit_failure_guarantee_verify;
+            libfunc [46] = store_temp<[28]>;
+            libfunc [2] = struct_construct<[26]>;
+            libfunc [1] = struct_construct<[29]>;
+            libfunc [0] = enum_init<[30], 1>;
+            libfunc [31] = drop<[8]>;
+            libfunc [32] = drop<[5]>;
+            libfunc [33] = const_as_immediate<[37]>;
+            libfunc [34] = const_as_immediate<[38]>;
 
-                let modulus = TryInto::<_, CircuitModulus>::try_into([12, 0, 0, 0]).unwrap();
+            [22]() -> ([3]); // 0
+            [23]() -> ([4]); // 1
+            [23]() -> ([5]); // 2
+            [23]() -> ([6]); // 3
+            [21]([3], [4], [5], [6]) -> ([7]); // 4
+            [35]([7]) -> ([7]); // 5
+            [20]([7]) { fallthrough([8]) 115() }; // 6
+            [24]() -> (); // 7
+            [19]([2]) -> ([9], [10]); // 8
+            [25]() -> ([11]); // 9
+            [18]([11]) -> ([12]); // 10
+            [23]() -> ([13]); // 11
+            [18]([13]) -> ([14]); // 12
+            [23]() -> ([15]); // 13
+            [18]([15]) -> ([16]); // 14
+            [23]() -> ([17]); // 15
+            [18]([17]) -> ([18]); // 16
+            [17]([12], [14], [16], [18]) -> ([19]); // 17
+            [36]([10]) -> ([10]); // 18
+            [37]([19]) -> ([19]); // 19
+            [38]([9]) -> ([9]); // 20
+            [16]([10], [19]) { fallthrough([20]) 100([21]) }; // 21
+            [24]() -> (); // 22
+            [15]() -> ([22]); // 23
+            [26]() -> ([23]); // 24
+            [27]() -> ([24]); // 25
+            [39]([23]) -> ([23]); // 26
+            [40]([24]) -> ([24]); // 27
+            [14]([0], [1], [22], [20], [8], [23], [24]) { fallthrough([25], [26], [27]) 58([28], [29], [30], [31]) }; // 28
+            [24]() -> (); // 29
+            [13]([27]) -> ([32], [33]); // 30
+            [41]([25]) -> ([25]); // 31
+            [42]([26]) -> ([26]); // 32
+            [9]([33]) { fallthrough([34]) 48([35]) }; // 33
+            [24]() -> (); // 34
+            [8]([34]) { fallthrough([36]) 45([37]) }; // 35
+            [24]() -> (); // 36
+            [7]([36]) { fallthrough([38]) 42([39]) }; // 37
+            [24]() -> (); // 38
+            [6]([38]) -> ([40]); // 39
+            [43]([40]) -> ([41]); // 40
+            [28]() { 50() }; // 41
+            [24]() -> (); // 42
+            [43]([39]) -> ([41]); // 43
+            [28]() { 50() }; // 44
+            [24]() -> (); // 45
+            [43]([37]) -> ([41]); // 46
+            [28]() { 50() }; // 47
+            [24]() -> (); // 48
+            [43]([35]) -> ([41]); // 49
+            [5]([9], [41]) -> ([42]); // 50
+            [12]([32]) -> ([43]); // 51
+            [11]([43]) -> ([44]); // 52
+            [41]([25]) -> ([25]); // 53
+            [42]([26]) -> ([26]); // 54
+            [38]([42]) -> ([42]); // 55
+            [44]([44]) -> ([44]); // 56
+            return([25], [26], [42], [44]); // 57
+            [24]() -> (); // 58
+            [29]([30]) -> (); // 59
+            [4]() -> ([45]); // 60
+            [30]() -> ([46]); // 61
+            [45]([46]) -> ([46]); // 62
+            [3]([45], [46]) -> ([47]); // 63
+            [26]() -> ([48]); // 64
+            [27]() -> ([49]); // 65
+            [42]([29]) -> ([29]); // 66
+            [39]([48]) -> ([48]); // 67
+            [40]([49]) -> ([49]); // 68
+            [10]([9], [29], [31], [48], [49]) -> ([50], [51], [52]); // 69
+            [41]([28]) -> ([28]); // 70
+            [46]([47]) -> ([47]); // 71
+            [38]([50]) -> ([50]); // 72
+            [42]([51]) -> ([51]); // 73
+            [9]([52]) { fallthrough([53]) 89([54]) }; // 74
+            [24]() -> (); // 75
+            [8]([53]) { fallthrough([55]) 86([56]) }; // 76
+            [24]() -> (); // 77
+            [7]([55]) { fallthrough([57]) 83([58]) }; // 78
+            [24]() -> (); // 79
+            [6]([57]) -> ([59]); // 80
+            [43]([59]) -> ([60]); // 81
+            [28]() { 91() }; // 82
+            [24]() -> (); // 83
+            [43]([58]) -> ([60]); // 84
+            [28]() { 91() }; // 85
+            [24]() -> (); // 86
+            [43]([56]) -> ([60]); // 87
+            [28]() { 91() }; // 88
+            [24]() -> (); // 89
+            [43]([54]) -> ([60]); // 90
+            [5]([50], [60]) -> ([61]); // 91
+            [2]() -> ([62]); // 92
+            [1]([62], [47]) -> ([63]); // 93
+            [0]([63]) -> ([64]); // 94
+            [41]([28]) -> ([28]); // 95
+            [42]([51]) -> ([51]); // 96
+            [38]([61]) -> ([61]); // 97
+            [44]([64]) -> ([64]); // 98
+            return([28], [51], [61], [64]); // 99
+            [24]() -> (); // 100
+            [31]([21]) -> (); // 101
+            [32]([8]) -> (); // 102
+            [4]() -> ([65]); // 103
+            [33]() -> ([66]); // 104
+            [45]([66]) -> ([66]); // 105
+            [3]([65], [66]) -> ([67]); // 106
+            [2]() -> ([68]); // 107
+            [1]([68], [67]) -> ([69]); // 108
+            [0]([69]) -> ([70]); // 109
+            [41]([0]) -> ([0]); // 110
+            [42]([1]) -> ([1]); // 111
+            [38]([9]) -> ([9]); // 112
+            [44]([70]) -> ([70]); // 113
+            return([0], [1], [9], [70]); // 114
+            [24]() -> (); // 115
+            [4]() -> ([71]); // 116
+            [34]() -> ([72]); // 117
+            [45]([72]) -> ([72]); // 118
+            [3]([71], [72]) -> ([73]); // 119
+            [2]() -> ([74]); // 120
+            [1]([74], [73]) -> ([75]); // 121
+            [0]([75]) -> ([76]); // 122
+            [41]([0]) -> ([0]); // 123
+            [42]([1]) -> ([1]); // 124
+            [38]([2]) -> ([2]); // 125
+            [44]([76]) -> ([76]); // 126
+            return([0], [1], [2], [76]); // 127
 
-                let outputs = (inv,)
-                    .new_inputs()
-                    .next([3, 0, 0, 0])
-                    .done()
-                    .eval(modulus)
-                    .unwrap();
+            [0]@0([0]: [0], [1]: [1], [2]: [2]) -> ([0], [1], [2], [30]);
+        "#).map_err(|e| e.to_string()).unwrap();
 
-                outputs.get_output(inv)
-            }
-        );
+        let return_value = run_sierra_program(&program, &[]).return_value;
 
-        run_program_assert_output(
-            &program,
-            "main",
-            &[],
+        assert_eq!(
             jit_panic!(felt252_str(
                 "30828113188794245257250221355944970489240709081949230"
             )),
+            return_value
         );
     }
 
     #[test]
     fn run_mul_overflow_circuit() {
-        let program = load_cairo!(
-            use core::circuit::{
-                RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
-                circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
-                CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
-            };
+        // use core::circuit::{
+        //     RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
+        //     circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
+        //     CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
+        // };
+        // fn main() -> u384 {
+        //     let in1 = CircuitElement::<CircuitInput<0>> {};
+        //     let in2 = CircuitElement::<CircuitInput<1>> {};
+        //     let mul = circuit_mul(in1, in2);
+        //     let modulus = TryInto::<_, CircuitModulus>::try_into([
+        //         0xffffffffffffffffffffffff,
+        //         0xffffffffffffffffffffffff,
+        //         0xffffffffffffffffffffffff,
+        //         0xffffffffffffffffffffffff,
+        //     ])
+        //     .unwrap();
+        //     let outputs = (mul,)
+        //         .new_inputs()
+        //         .next([0, 0, 0, 0xffffffffffffffffffffffff])
+        //         .next([16, 0, 0, 0])
+        //         .done()
+        //         .eval(modulus)
+        //         .unwrap();
+        //     outputs.get_output(mul)
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [3] = BoundedInt<0, 79228162514264337593543950335> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [40] = Const<[15], 29721761890975875353235833581453094220424382983267374> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [39] = Const<[15], 138583295661092166701491297054433349032460315956105119041111996301516236132> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [38] = Const<[15], 30828113188794245257250221355944970489240709081949230> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [19] = Struct<ut@core::circuit::u384, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [20] = Struct<ut@Tuple, [19]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [31] = U96LimbsLtGuarantee<1> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [30] = U96LimbsLtGuarantee<2> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [29] = U96LimbsLtGuarantee<3> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [9] = MulModGate<[10], [11]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [28] = U96LimbsLtGuarantee<4> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [11] = CircuitInput<1> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [10] = CircuitInput<0> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [27] = CircuitFailureGuarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [26] = CircuitPartialOutputs<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [25] = CircuitOutputs<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [37] = Const<[24], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [24] = BoundedInt<1, 1> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [36] = Const<[23], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [23] = BoundedInt<0, 0> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [22] = CircuitDescriptor<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [35] = Const<[3], 16> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [1] = MulMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [0] = AddMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [17] = Struct<ut@core::panics::Panic> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [16] = Array<[15]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [18] = Struct<ut@Tuple, [17], [16]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [21] = Enum<ut@core::panics::PanicResult::<(core::circuit::u384,)>, [20], [18]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [34] = Const<[15], 26913677086973030051406221357623718750637972950955665348321109348> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [15] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [14] = CircuitData<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [12] = U96Guarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [13] = Struct<ut@Tuple, [12], [12], [12], [12]> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [33] = Const<[3], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [7] = Circuit<[6]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [6] = Struct<ut@Tuple, [9]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [8] = CircuitInputAccumulator<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [2] = RangeCheck96 [storable: true, drop: false, dup: false, zero_sized: false];
+            type [5] = CircuitModulus [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Struct<ut@Tuple, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [32] = Const<[3], 79228162514264337593543950335> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            fn main() -> u384 {
-                let in1 = CircuitElement::<CircuitInput<0>> {};
-                let in2 = CircuitElement::<CircuitInput<1>> {};
-                let mul = circuit_mul(in1, in2);
+            libfunc [22] = const_as_immediate<[32]>;
+            libfunc [21] = struct_construct<[4]>;
+            libfunc [37] = store_temp<[4]>;
+            libfunc [20] = try_into_circuit_modulus;
+            libfunc [23] = branch_align;
+            libfunc [19] = init_circuit_data<[7]>;
+            libfunc [24] = const_as_immediate<[33]>;
+            libfunc [18] = into_u96_guarantee<[3]>;
+            libfunc [17] = struct_construct<[13]>;
+            libfunc [38] = store_temp<[8]>;
+            libfunc [39] = store_temp<[13]>;
+            libfunc [40] = store_temp<[2]>;
+            libfunc [16] = add_circuit_input<[7]>;
+            libfunc [25] = drop<[14]>;
+            libfunc [26] = drop<[5]>;
+            libfunc [4] = array_new<[15]>;
+            libfunc [27] = const_as_immediate<[34]>;
+            libfunc [41] = store_temp<[15]>;
+            libfunc [3] = array_append<[15]>;
+            libfunc [2] = struct_construct<[17]>;
+            libfunc [1] = struct_construct<[18]>;
+            libfunc [0] = enum_init<[21], 1>;
+            libfunc [42] = store_temp<[0]>;
+            libfunc [43] = store_temp<[1]>;
+            libfunc [44] = store_temp<[21]>;
+            libfunc [28] = const_as_immediate<[35]>;
+            libfunc [15] = get_circuit_descriptor<[7]>;
+            libfunc [29] = const_as_immediate<[36]>;
+            libfunc [30] = const_as_immediate<[37]>;
+            libfunc [45] = store_temp<[23]>;
+            libfunc [46] = store_temp<[24]>;
+            libfunc [14] = eval_circuit<[7]>;
+            libfunc [13] = get_circuit_output<[7], [9]>;
+            libfunc [9] = u96_limbs_less_than_guarantee_verify<4>;
+            libfunc [8] = u96_limbs_less_than_guarantee_verify<3>;
+            libfunc [7] = u96_limbs_less_than_guarantee_verify<2>;
+            libfunc [6] = u96_single_limb_less_than_guarantee_verify;
+            libfunc [47] = store_temp<[12]>;
+            libfunc [31] = jump;
+            libfunc [5] = u96_guarantee_verify;
+            libfunc [12] = struct_construct<[20]>;
+            libfunc [11] = enum_init<[21], 0>;
+            libfunc [32] = drop<[26]>;
+            libfunc [33] = const_as_immediate<[38]>;
+            libfunc [10] = circuit_failure_guarantee_verify;
+            libfunc [48] = store_temp<[16]>;
+            libfunc [34] = drop<[8]>;
+            libfunc [35] = const_as_immediate<[39]>;
+            libfunc [36] = const_as_immediate<[40]>;
 
-                let modulus = TryInto::<_, CircuitModulus>::try_into([
-                    0xffffffffffffffffffffffff,
-                    0xffffffffffffffffffffffff,
-                    0xffffffffffffffffffffffff,
-                    0xffffffffffffffffffffffff,
-                ])
-                .unwrap();
+            [22]() -> ([3]); // 0
+            [22]() -> ([4]); // 1
+            [22]() -> ([5]); // 2
+            [22]() -> ([6]); // 3
+            [21]([3], [4], [5], [6]) -> ([7]); // 4
+            [37]([7]) -> ([7]); // 5
+            [20]([7]) { fallthrough([8]) 142() }; // 6
+            [23]() -> (); // 7
+            [19]([2]) -> ([9], [10]); // 8
+            [24]() -> ([11]); // 9
+            [18]([11]) -> ([12]); // 10
+            [24]() -> ([13]); // 11
+            [18]([13]) -> ([14]); // 12
+            [24]() -> ([15]); // 13
+            [18]([15]) -> ([16]); // 14
+            [22]() -> ([17]); // 15
+            [18]([17]) -> ([18]); // 16
+            [17]([12], [14], [16], [18]) -> ([19]); // 17
+            [38]([10]) -> ([10]); // 18
+            [39]([19]) -> ([19]); // 19
+            [40]([9]) -> ([9]); // 20
+            [16]([10], [19]) { fallthrough([20]) 37([21]) }; // 21
+            [23]() -> (); // 22
+            [25]([20]) -> (); // 23
+            [26]([8]) -> (); // 24
+            [4]() -> ([22]); // 25
+            [27]() -> ([23]); // 26
+            [41]([23]) -> ([23]); // 27
+            [3]([22], [23]) -> ([24]); // 28
+            [2]() -> ([25]); // 29
+            [1]([25], [24]) -> ([26]); // 30
+            [0]([26]) -> ([27]); // 31
+            [42]([0]) -> ([0]); // 32
+            [43]([1]) -> ([1]); // 33
+            [40]([9]) -> ([9]); // 34
+            [44]([27]) -> ([27]); // 35
+            return([0], [1], [9], [27]); // 36
+            [23]() -> (); // 37
+            [28]() -> ([28]); // 38
+            [18]([28]) -> ([29]); // 39
+            [24]() -> ([30]); // 40
+            [18]([30]) -> ([31]); // 41
+            [24]() -> ([32]); // 42
+            [18]([32]) -> ([33]); // 43
+            [24]() -> ([34]); // 44
+            [18]([34]) -> ([35]); // 45
+            [17]([29], [31], [33], [35]) -> ([36]); // 46
+            [39]([36]) -> ([36]); // 47
+            [16]([21], [36]) { fallthrough([37]) 127([38]) }; // 48
+            [23]() -> (); // 49
+            [15]() -> ([39]); // 50
+            [29]() -> ([40]); // 51
+            [30]() -> ([41]); // 52
+            [45]([40]) -> ([40]); // 53
+            [46]([41]) -> ([41]); // 54
+            [14]([0], [1], [39], [37], [8], [40], [41]) { fallthrough([42], [43], [44]) 85([45], [46], [47], [48]) }; // 55
+            [23]() -> (); // 56
+            [13]([44]) -> ([49], [50]); // 57
+            [42]([42]) -> ([42]); // 58
+            [43]([43]) -> ([43]); // 59
+            [9]([50]) { fallthrough([51]) 75([52]) }; // 60
+            [23]() -> (); // 61
+            [8]([51]) { fallthrough([53]) 72([54]) }; // 62
+            [23]() -> (); // 63
+            [7]([53]) { fallthrough([55]) 69([56]) }; // 64
+            [23]() -> (); // 65
+            [6]([55]) -> ([57]); // 66
+            [47]([57]) -> ([58]); // 67
+            [31]() { 77() }; // 68
+            [23]() -> (); // 69
+            [47]([56]) -> ([58]); // 70
+            [31]() { 77() }; // 71
+            [23]() -> (); // 72
+            [47]([54]) -> ([58]); // 73
+            [31]() { 77() }; // 74
+            [23]() -> (); // 75
+            [47]([52]) -> ([58]); // 76
+            [5]([9], [58]) -> ([59]); // 77
+            [12]([49]) -> ([60]); // 78
+            [11]([60]) -> ([61]); // 79
+            [42]([42]) -> ([42]); // 80
+            [43]([43]) -> ([43]); // 81
+            [40]([59]) -> ([59]); // 82
+            [44]([61]) -> ([61]); // 83
+            return([42], [43], [59], [61]); // 84
+            [23]() -> (); // 85
+            [32]([47]) -> (); // 86
+            [4]() -> ([62]); // 87
+            [33]() -> ([63]); // 88
+            [41]([63]) -> ([63]); // 89
+            [3]([62], [63]) -> ([64]); // 90
+            [29]() -> ([65]); // 91
+            [30]() -> ([66]); // 92
+            [43]([46]) -> ([46]); // 93
+            [45]([65]) -> ([65]); // 94
+            [46]([66]) -> ([66]); // 95
+            [10]([9], [46], [48], [65], [66]) -> ([67], [68], [69]); // 96
+            [42]([45]) -> ([45]); // 97
+            [48]([64]) -> ([64]); // 98
+            [40]([67]) -> ([67]); // 99
+            [43]([68]) -> ([68]); // 100
+            [9]([69]) { fallthrough([70]) 116([71]) }; // 101
+            [23]() -> (); // 102
+            [8]([70]) { fallthrough([72]) 113([73]) }; // 103
+            [23]() -> (); // 104
+            [7]([72]) { fallthrough([74]) 110([75]) }; // 105
+            [23]() -> (); // 106
+            [6]([74]) -> ([76]); // 107
+            [47]([76]) -> ([77]); // 108
+            [31]() { 118() }; // 109
+            [23]() -> (); // 110
+            [47]([75]) -> ([77]); // 111
+            [31]() { 118() }; // 112
+            [23]() -> (); // 113
+            [47]([73]) -> ([77]); // 114
+            [31]() { 118() }; // 115
+            [23]() -> (); // 116
+            [47]([71]) -> ([77]); // 117
+            [5]([67], [77]) -> ([78]); // 118
+            [2]() -> ([79]); // 119
+            [1]([79], [64]) -> ([80]); // 120
+            [0]([80]) -> ([81]); // 121
+            [42]([45]) -> ([45]); // 122
+            [43]([68]) -> ([68]); // 123
+            [40]([78]) -> ([78]); // 124
+            [44]([81]) -> ([81]); // 125
+            return([45], [68], [78], [81]); // 126
+            [23]() -> (); // 127
+            [34]([38]) -> (); // 128
+            [26]([8]) -> (); // 129
+            [4]() -> ([82]); // 130
+            [35]() -> ([83]); // 131
+            [41]([83]) -> ([83]); // 132
+            [3]([82], [83]) -> ([84]); // 133
+            [2]() -> ([85]); // 134
+            [1]([85], [84]) -> ([86]); // 135
+            [0]([86]) -> ([87]); // 136
+            [42]([0]) -> ([0]); // 137
+            [43]([1]) -> ([1]); // 138
+            [40]([9]) -> ([9]); // 139
+            [44]([87]) -> ([87]); // 140
+            return([0], [1], [9], [87]); // 141
+            [23]() -> (); // 142
+            [4]() -> ([88]); // 143
+            [36]() -> ([89]); // 144
+            [41]([89]) -> ([89]); // 145
+            [3]([88], [89]) -> ([90]); // 146
+            [2]() -> ([91]); // 147
+            [1]([91], [90]) -> ([92]); // 148
+            [0]([92]) -> ([93]); // 149
+            [42]([0]) -> ([0]); // 150
+            [43]([1]) -> ([1]); // 151
+            [40]([2]) -> ([2]); // 152
+            [44]([93]) -> ([93]); // 153
+            return([0], [1], [2], [93]); // 154
 
-                let outputs = (mul,)
-                    .new_inputs()
-                    .next([0, 0, 0, 0xffffffffffffffffffffffff])
-                    .next([16, 0, 0, 0])
-                    .done()
-                    .eval(modulus)
-                    .unwrap();
+            [0]@0([0]: [0], [1]: [1], [2]: [2]) -> ([0], [1], [2], [21]);
+        "#).map_err(|e| e.to_string()).unwrap();
 
-                outputs.get_output(mul)
-            }
-        );
+        let return_value = run_sierra_program(&program, &[]).return_value;
 
-        run_program_assert_output(
-            &program,
-            "main",
-            &[],
+        assert_eq!(
             jit_enum!(
                 0,
                 jit_struct!(u384(["0xf", "0x0", "0x0", "0xfffffffffffffffffffffff0"]))
             ),
+            return_value
         );
     }
 
     #[test]
     fn run_full_circuit() {
-        let program = load_cairo!(
-            use core::circuit::{
-                RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
-                circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
-                CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
-            };
+        // use core::circuit::{
+        //     RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add,
+        //     circuit_sub, circuit_mul, circuit_inverse, EvalCircuitTrait, u384,
+        //     CircuitOutputsTrait, CircuitModulus, AddInputResultTrait, CircuitInputs,
+        // };
+        // fn main() -> u384 {
+        //     let in1 = CircuitElement::<CircuitInput<0>> {};
+        //     let in2 = CircuitElement::<CircuitInput<1>> {};
+        //     let add1 = circuit_add(in1, in2);
+        //     let mul1 = circuit_mul(add1, in1);
+        //     let mul2 = circuit_mul(mul1, add1);
+        //     let inv1 = circuit_inverse(mul2);
+        //     let sub1 = circuit_sub(inv1, in2);
+        //     let sub2 = circuit_sub(sub1, mul2);
+        //     let inv2 = circuit_inverse(sub2);
+        //     let add2 = circuit_add(inv2, inv2);
+        //     let modulus = TryInto::<_, CircuitModulus>::try_into([17, 14, 14, 14]).unwrap();
+        //     let outputs = (add2,)
+        //         .new_inputs()
+        //         .next([9, 2, 9, 3])
+        //         .next([5, 7, 0, 8])
+        //         .done()
+        //         .eval(modulus)
+        //         .unwrap();
+        //     outputs.get_output(add2)
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [3] = BoundedInt<0, 79228162514264337593543950335> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [53] = Const<[22], 29721761890975875353235833581453094220424382983267374> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [52] = Const<[22], 138583295661092166701491297054433349032460315956105119041111996301516236132> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [51] = Const<[22], 30828113188794245257250221355944970489240709081949230> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [26] = Struct<ut@core::circuit::u384, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [27] = Struct<ut@Tuple, [26]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [38] = U96LimbsLtGuarantee<1> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [37] = U96LimbsLtGuarantee<2> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [36] = U96LimbsLtGuarantee<3> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [9] = AddModGate<[10], [10]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [35] = U96LimbsLtGuarantee<4> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [10] = InverseGate<[11]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [11] = SubModGate<[12], [13]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [34] = CircuitFailureGuarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [13] = MulModGate<[14], [15]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [12] = SubModGate<[18], [17]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [15] = AddModGate<[16], [17]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [17] = CircuitInput<1> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [16] = CircuitInput<0> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [18] = InverseGate<[13]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [14] = MulModGate<[15], [16]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [33] = CircuitPartialOutputs<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [32] = CircuitOutputs<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [50] = Const<[31], 1> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [31] = BoundedInt<1, 1> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [49] = Const<[30], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [30] = BoundedInt<0, 0> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [29] = CircuitDescriptor<[7]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [48] = Const<[3], 8> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [47] = Const<[3], 0> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [46] = Const<[3], 7> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [45] = Const<[3], 5> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [1] = MulMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [0] = AddMod [storable: true, drop: false, dup: false, zero_sized: false];
+            type [24] = Struct<ut@core::panics::Panic> [storable: true, drop: true, dup: true, zero_sized: true];
+            type [23] = Array<[22]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [25] = Struct<ut@Tuple, [24], [23]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [28] = Enum<ut@core::panics::PanicResult::<(core::circuit::u384,)>, [27], [25]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [44] = Const<[22], 26913677086973030051406221357623718750637972950955665348321109348> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [22] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [21] = CircuitData<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [19] = U96Guarantee [storable: true, drop: false, dup: false, zero_sized: false];
+            type [20] = Struct<ut@Tuple, [19], [19], [19], [19]> [storable: true, drop: false, dup: false, zero_sized: false];
+            type [43] = Const<[3], 3> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [42] = Const<[3], 2> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [41] = Const<[3], 9> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [7] = Circuit<[6]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [6] = Struct<ut@Tuple, [9]> [storable: false, drop: false, dup: false, zero_sized: true];
+            type [8] = CircuitInputAccumulator<[7]> [storable: true, drop: true, dup: false, zero_sized: false];
+            type [2] = RangeCheck96 [storable: true, drop: false, dup: false, zero_sized: false];
+            type [5] = CircuitModulus [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = Struct<ut@Tuple, [3], [3], [3], [3]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [40] = Const<[3], 14> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [39] = Const<[3], 17> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            fn main() -> u384 {
-                let in1 = CircuitElement::<CircuitInput<0>> {};
-                let in2 = CircuitElement::<CircuitInput<1>> {};
-                let add1 = circuit_add(in1, in2);
-                let mul1 = circuit_mul(add1, in1);
-                let mul2 = circuit_mul(mul1, add1);
-                let inv1 = circuit_inverse(mul2);
-                let sub1 = circuit_sub(inv1, in2);
-                let sub2 = circuit_sub(sub1, mul2);
-                let inv2 = circuit_inverse(sub2);
-                let add2 = circuit_add(inv2, inv2);
+            libfunc [22] = const_as_immediate<[39]>;
+            libfunc [23] = const_as_immediate<[40]>;
+            libfunc [21] = struct_construct<[4]>;
+            libfunc [43] = store_temp<[4]>;
+            libfunc [20] = try_into_circuit_modulus;
+            libfunc [24] = branch_align;
+            libfunc [19] = init_circuit_data<[7]>;
+            libfunc [25] = const_as_immediate<[41]>;
+            libfunc [18] = into_u96_guarantee<[3]>;
+            libfunc [26] = const_as_immediate<[42]>;
+            libfunc [27] = const_as_immediate<[43]>;
+            libfunc [17] = struct_construct<[20]>;
+            libfunc [44] = store_temp<[8]>;
+            libfunc [45] = store_temp<[20]>;
+            libfunc [46] = store_temp<[2]>;
+            libfunc [16] = add_circuit_input<[7]>;
+            libfunc [28] = drop<[21]>;
+            libfunc [29] = drop<[5]>;
+            libfunc [4] = array_new<[22]>;
+            libfunc [30] = const_as_immediate<[44]>;
+            libfunc [47] = store_temp<[22]>;
+            libfunc [3] = array_append<[22]>;
+            libfunc [2] = struct_construct<[24]>;
+            libfunc [1] = struct_construct<[25]>;
+            libfunc [0] = enum_init<[28], 1>;
+            libfunc [48] = store_temp<[0]>;
+            libfunc [49] = store_temp<[1]>;
+            libfunc [50] = store_temp<[28]>;
+            libfunc [31] = const_as_immediate<[45]>;
+            libfunc [32] = const_as_immediate<[46]>;
+            libfunc [33] = const_as_immediate<[47]>;
+            libfunc [34] = const_as_immediate<[48]>;
+            libfunc [15] = get_circuit_descriptor<[7]>;
+            libfunc [35] = const_as_immediate<[49]>;
+            libfunc [36] = const_as_immediate<[50]>;
+            libfunc [51] = store_temp<[30]>;
+            libfunc [52] = store_temp<[31]>;
+            libfunc [14] = eval_circuit<[7]>;
+            libfunc [13] = get_circuit_output<[7], [9]>;
+            libfunc [9] = u96_limbs_less_than_guarantee_verify<4>;
+            libfunc [8] = u96_limbs_less_than_guarantee_verify<3>;
+            libfunc [7] = u96_limbs_less_than_guarantee_verify<2>;
+            libfunc [6] = u96_single_limb_less_than_guarantee_verify;
+            libfunc [53] = store_temp<[19]>;
+            libfunc [37] = jump;
+            libfunc [5] = u96_guarantee_verify;
+            libfunc [12] = struct_construct<[27]>;
+            libfunc [11] = enum_init<[28], 0>;
+            libfunc [38] = drop<[33]>;
+            libfunc [39] = const_as_immediate<[51]>;
+            libfunc [10] = circuit_failure_guarantee_verify;
+            libfunc [54] = store_temp<[23]>;
+            libfunc [40] = drop<[8]>;
+            libfunc [41] = const_as_immediate<[52]>;
+            libfunc [42] = const_as_immediate<[53]>;
 
-                let modulus = TryInto::<_, CircuitModulus>::try_into([17, 14, 14, 14]).unwrap();
+            [22]() -> ([3]); // 0
+            [23]() -> ([4]); // 1
+            [23]() -> ([5]); // 2
+            [23]() -> ([6]); // 3
+            [21]([3], [4], [5], [6]) -> ([7]); // 4
+            [43]([7]) -> ([7]); // 5
+            [20]([7]) { fallthrough([8]) 142() }; // 6
+            [24]() -> (); // 7
+            [19]([2]) -> ([9], [10]); // 8
+            [25]() -> ([11]); // 9
+            [18]([11]) -> ([12]); // 10
+            [26]() -> ([13]); // 11
+            [18]([13]) -> ([14]); // 12
+            [25]() -> ([15]); // 13
+            [18]([15]) -> ([16]); // 14
+            [27]() -> ([17]); // 15
+            [18]([17]) -> ([18]); // 16
+            [17]([12], [14], [16], [18]) -> ([19]); // 17
+            [44]([10]) -> ([10]); // 18
+            [45]([19]) -> ([19]); // 19
+            [46]([9]) -> ([9]); // 20
+            [16]([10], [19]) { fallthrough([20]) 37([21]) }; // 21
+            [24]() -> (); // 22
+            [28]([20]) -> (); // 23
+            [29]([8]) -> (); // 24
+            [4]() -> ([22]); // 25
+            [30]() -> ([23]); // 26
+            [47]([23]) -> ([23]); // 27
+            [3]([22], [23]) -> ([24]); // 28
+            [2]() -> ([25]); // 29
+            [1]([25], [24]) -> ([26]); // 30
+            [0]([26]) -> ([27]); // 31
+            [48]([0]) -> ([0]); // 32
+            [49]([1]) -> ([1]); // 33
+            [46]([9]) -> ([9]); // 34
+            [50]([27]) -> ([27]); // 35
+            return([0], [1], [9], [27]); // 36
+            [24]() -> (); // 37
+            [31]() -> ([28]); // 38
+            [18]([28]) -> ([29]); // 39
+            [32]() -> ([30]); // 40
+            [18]([30]) -> ([31]); // 41
+            [33]() -> ([32]); // 42
+            [18]([32]) -> ([33]); // 43
+            [34]() -> ([34]); // 44
+            [18]([34]) -> ([35]); // 45
+            [17]([29], [31], [33], [35]) -> ([36]); // 46
+            [45]([36]) -> ([36]); // 47
+            [16]([21], [36]) { fallthrough([37]) 127([38]) }; // 48
+            [24]() -> (); // 49
+            [15]() -> ([39]); // 50
+            [35]() -> ([40]); // 51
+            [36]() -> ([41]); // 52
+            [51]([40]) -> ([40]); // 53
+            [52]([41]) -> ([41]); // 54
+            [14]([0], [1], [39], [37], [8], [40], [41]) { fallthrough([42], [43], [44]) 85([45], [46], [47], [48]) }; // 55
+            [24]() -> (); // 56
+            [13]([44]) -> ([49], [50]); // 57
+            [48]([42]) -> ([42]); // 58
+            [49]([43]) -> ([43]); // 59
+            [9]([50]) { fallthrough([51]) 75([52]) }; // 60
+            [24]() -> (); // 61
+            [8]([51]) { fallthrough([53]) 72([54]) }; // 62
+            [24]() -> (); // 63
+            [7]([53]) { fallthrough([55]) 69([56]) }; // 64
+            [24]() -> (); // 65
+            [6]([55]) -> ([57]); // 66
+            [53]([57]) -> ([58]); // 67
+            [37]() { 77() }; // 68
+            [24]() -> (); // 69
+            [53]([56]) -> ([58]); // 70
+            [37]() { 77() }; // 71
+            [24]() -> (); // 72
+            [53]([54]) -> ([58]); // 73
+            [37]() { 77() }; // 74
+            [24]() -> (); // 75
+            [53]([52]) -> ([58]); // 76
+            [5]([9], [58]) -> ([59]); // 77
+            [12]([49]) -> ([60]); // 78
+            [11]([60]) -> ([61]); // 79
+            [48]([42]) -> ([42]); // 80
+            [49]([43]) -> ([43]); // 81
+            [46]([59]) -> ([59]); // 82
+            [50]([61]) -> ([61]); // 83
+            return([42], [43], [59], [61]); // 84
+            [24]() -> (); // 85
+            [38]([47]) -> (); // 86
+            [4]() -> ([62]); // 87
+            [39]() -> ([63]); // 88
+            [47]([63]) -> ([63]); // 89
+            [3]([62], [63]) -> ([64]); // 90
+            [35]() -> ([65]); // 91
+            [36]() -> ([66]); // 92
+            [49]([46]) -> ([46]); // 93
+            [51]([65]) -> ([65]); // 94
+            [52]([66]) -> ([66]); // 95
+            [10]([9], [46], [48], [65], [66]) -> ([67], [68], [69]); // 96
+            [48]([45]) -> ([45]); // 97
+            [54]([64]) -> ([64]); // 98
+            [46]([67]) -> ([67]); // 99
+            [49]([68]) -> ([68]); // 100
+            [9]([69]) { fallthrough([70]) 116([71]) }; // 101
+            [24]() -> (); // 102
+            [8]([70]) { fallthrough([72]) 113([73]) }; // 103
+            [24]() -> (); // 104
+            [7]([72]) { fallthrough([74]) 110([75]) }; // 105
+            [24]() -> (); // 106
+            [6]([74]) -> ([76]); // 107
+            [53]([76]) -> ([77]); // 108
+            [37]() { 118() }; // 109
+            [24]() -> (); // 110
+            [53]([75]) -> ([77]); // 111
+            [37]() { 118() }; // 112
+            [24]() -> (); // 113
+            [53]([73]) -> ([77]); // 114
+            [37]() { 118() }; // 115
+            [24]() -> (); // 116
+            [53]([71]) -> ([77]); // 117
+            [5]([67], [77]) -> ([78]); // 118
+            [2]() -> ([79]); // 119
+            [1]([79], [64]) -> ([80]); // 120
+            [0]([80]) -> ([81]); // 121
+            [48]([45]) -> ([45]); // 122
+            [49]([68]) -> ([68]); // 123
+            [46]([78]) -> ([78]); // 124
+            [50]([81]) -> ([81]); // 125
+            return([45], [68], [78], [81]); // 126
+            [24]() -> (); // 127
+            [40]([38]) -> (); // 128
+            [29]([8]) -> (); // 129
+            [4]() -> ([82]); // 130
+            [41]() -> ([83]); // 131
+            [47]([83]) -> ([83]); // 132
+            [3]([82], [83]) -> ([84]); // 133
+            [2]() -> ([85]); // 134
+            [1]([85], [84]) -> ([86]); // 135
+            [0]([86]) -> ([87]); // 136
+            [48]([0]) -> ([0]); // 137
+            [49]([1]) -> ([1]); // 138
+            [46]([9]) -> ([9]); // 139
+            [50]([87]) -> ([87]); // 140
+            return([0], [1], [9], [87]); // 141
+            [24]() -> (); // 142
+            [4]() -> ([88]); // 143
+            [42]() -> ([89]); // 144
+            [47]([89]) -> ([89]); // 145
+            [3]([88], [89]) -> ([90]); // 146
+            [2]() -> ([91]); // 147
+            [1]([91], [90]) -> ([92]); // 148
+            [0]([92]) -> ([93]); // 149
+            [48]([0]) -> ([0]); // 150
+            [49]([1]) -> ([1]); // 151
+            [46]([2]) -> ([2]); // 152
+            [50]([93]) -> ([93]); // 153
+            return([0], [1], [2], [93]); // 154
 
-                let outputs = (add2,)
-                    .new_inputs()
-                    .next([9, 2, 9, 3])
-                    .next([5, 7, 0, 8])
-                    .done()
-                    .eval(modulus)
-                    .unwrap();
+            [0]@0([0]: [0], [1]: [1], [2]: [2]) -> ([0], [1], [2], [28]);
+        "#).map_err(|e| e.to_string()).unwrap();
 
-                outputs.get_output(add2)
-            }
-        );
+        let return_value = run_sierra_program(&program, &[]).return_value;
 
-        run_program_assert_output(
-            &program,
-            "main",
-            &[],
+        assert_eq!(
             jit_enum!(
                 0,
                 jit_struct!(u384([
@@ -1308,6 +2979,7 @@ mod test {
                     "0x7"
                 ]))
             ),
+            return_value
         );
     }
 }

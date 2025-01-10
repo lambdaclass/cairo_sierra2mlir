@@ -554,76 +554,150 @@ pub fn build_snapshot_match<'ctx, 'this>(
 mod test {
     use crate::{
         context::NativeContext,
-        utils::test::{jit_enum, jit_struct, load_cairo, run_program_assert_output},
+        utils::test::{jit_enum, jit_struct, run_sierra_program},
+        Value,
     };
-    use cairo_lang_sierra::program::Program;
+    use cairo_lang_sierra::{program::Program, ProgramParser};
     use lazy_static::lazy_static;
     use starknet_types_core::felt::Felt;
 
     lazy_static! {
-        static ref ENUM_INIT: (String, Program) = load_cairo! {
-            enum MySmallEnum {
-                A: felt252,
-            }
+        // enum MySmallEnum {
+        //     A: felt252,
+        // }
+        // enum MyEnum {
+        //     A: felt252,
+        //     B: u8,
+        //     C: u16,
+        //     D: u32,
+        //     E: u64,
+        // }
+        // fn run_test() -> (MySmallEnum, MyEnum, MyEnum, MyEnum, MyEnum, MyEnum) {
+        //     (
+        //         MySmallEnum::A(-1),
+        //         MyEnum::A(5678),
+        //         MyEnum::B(90),
+        //         MyEnum::C(9012),
+        //         MyEnum::D(34567890),
+        //         MyEnum::E(1234567890123456),
+        //     )
+        // }
+        static ref ENUM_INIT: Program = ProgramParser::new().parse(r#"
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = Enum<ut@program::program::MySmallEnum, [0]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [2] = u8 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [3] = u16 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [4] = u32 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [5] = u64 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [6] = Enum<ut@program::program::MyEnum, [0], [2], [3], [4], [5]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [7] = Struct<ut@Tuple, [1], [6], [6], [6], [6], [6]> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [13] = Const<[5], 1234567890123456> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [12] = Const<[4], 34567890> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [11] = Const<[3], 9012> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [10] = Const<[2], 90> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [9] = Const<[0], 5678> [storable: false, drop: false, dup: false, zero_sized: false];
+            type [8] = Const<[0], -1> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            enum MyEnum {
-                A: felt252,
-                B: u8,
-                C: u16,
-                D: u32,
-                E: u64,
-            }
+            libfunc [7] = const_as_immediate<[8]>;
+            libfunc [6] = enum_init<[1], 0>;
+            libfunc [8] = const_as_immediate<[9]>;
+            libfunc [5] = enum_init<[6], 0>;
+            libfunc [9] = const_as_immediate<[10]>;
+            libfunc [4] = enum_init<[6], 1>;
+            libfunc [10] = const_as_immediate<[11]>;
+            libfunc [3] = enum_init<[6], 2>;
+            libfunc [11] = const_as_immediate<[12]>;
+            libfunc [2] = enum_init<[6], 3>;
+            libfunc [12] = const_as_immediate<[13]>;
+            libfunc [1] = enum_init<[6], 4>;
+            libfunc [0] = struct_construct<[7]>;
+            libfunc [13] = store_temp<[7]>;
 
-            fn run_test() -> (MySmallEnum, MyEnum, MyEnum, MyEnum, MyEnum, MyEnum) {
-                (
-                    MySmallEnum::A(-1),
-                    MyEnum::A(5678),
-                    MyEnum::B(90),
-                    MyEnum::C(9012),
-                    MyEnum::D(34567890),
-                    MyEnum::E(1234567890123456),
-                )
-            }
-        };
-        static ref ENUM_MATCH: (String, Program) = load_cairo! {
-            enum MyEnum {
-                A: felt252,
-                B: u8,
-                C: u16,
-                D: u32,
-                E: u64,
-            }
+            [7]() -> ([0]); // 0
+            [6]([0]) -> ([1]); // 1
+            [8]() -> ([2]); // 2
+            [5]([2]) -> ([3]); // 3
+            [9]() -> ([4]); // 4
+            [4]([4]) -> ([5]); // 5
+            [10]() -> ([6]); // 6
+            [3]([6]) -> ([7]); // 7
+            [11]() -> ([8]); // 8
+            [2]([8]) -> ([9]); // 9
+            [12]() -> ([10]); // 10
+            [1]([10]) -> ([11]); // 11
+            [0]([1], [3], [5], [7], [9], [11]) -> ([12]); // 12
+            [13]([12]) -> ([12]); // 13
+            return([12]); // 14
 
-            fn match_a() -> felt252 {
-                let x = MyEnum::A(5);
-                match x {
-                    MyEnum::A(x) => x,
-                    MyEnum::B(_) => 0,
-                    MyEnum::C(_) => 1,
-                    MyEnum::D(_) => 2,
-                    MyEnum::E(_) => 3,
-                }
-            }
+            [0]@0() -> ([7]);
+        "#).map_err(|e| e.to_string()).unwrap();
+        // enum MyEnum {
+        //     A: felt252,
+        //     B: u8,
+        //     C: u16,
+        //     D: u32,
+        //     E: u64,
+        // }
+        // fn match_a() -> felt252 {
+        //     let x = MyEnum::A(5);
+        //     match x {
+        //         MyEnum::A(x) => x,
+        //         MyEnum::B(_) => 0,
+        //         MyEnum::C(_) => 1,
+        //         MyEnum::D(_) => 2,
+        //         MyEnum::E(_) => 3,
+        //     }
+        // }
+        static ref ENUM_MATCH_FELT: Program = ProgramParser::new().parse(r#"
+            type [0] = felt252 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = Const<[0], 5> [storable: false, drop: false, dup: false, zero_sized: false];
 
-            fn match_b() -> u8 {
-                let x = MyEnum::B(5_u8);
-                match x {
-                    MyEnum::A(_) => 0_u8,
-                    MyEnum::B(x) => x,
-                    MyEnum::C(_) => 1_u8,
-                    MyEnum::D(_) => 2_u8,
-                    MyEnum::E(_) => 3_u8,
-                }
-            }
-        };
+            libfunc [0] = const_as_immediate<[1]>;
+            libfunc [1] = store_temp<[0]>;
+
+            [0]() -> ([0]); // 0
+            [1]([0]) -> ([0]); // 1
+            return([0]); // 2
+
+            [0]@0() -> ([0]);
+        "#).map_err(|e| e.to_string()).unwrap();
+        // enum MyEnum {
+        //     A: felt252,
+        //     B: u8,
+        //     C: u16,
+        //     D: u32,
+        //     E: u64,
+        // }
+        // fn match_b() -> u8 {
+        //     let x = MyEnum::B(5_u8);
+        //     match x {
+        //         MyEnum::A(_) => 0_u8,
+        //         MyEnum::B(x) => x,
+        //         MyEnum::C(_) => 1_u8,
+        //         MyEnum::D(_) => 2_u8,
+        //         MyEnum::E(_) => 3_u8,
+        //     }
+        // }
+        static ref ENUM_MATCH_U8: Program = ProgramParser::new().parse(r#"
+            type [0] = u8 [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = Const<[0], 5> [storable: false, drop: false, dup: false, zero_sized: false];
+
+            libfunc [0] = const_as_immediate<[1]>;
+            libfunc [1] = store_temp<[0]>;
+
+            [0]() -> ([0]); // 0
+            [1]([0]) -> ([0]); // 1
+            return([0]); // 2
+
+            [0]@0() -> ([0]);
+        "#).map_err(|e| e.to_string()).unwrap();
     }
 
     #[test]
     fn enum_init() {
-        run_program_assert_output(
-            &ENUM_INIT,
-            "run_test",
-            &[],
+        let return_value = run_sierra_program(&ENUM_INIT, &[]).return_value;
+
+        assert_eq!(
             jit_struct!(
                 jit_enum!(0, Felt::from(-1).into()),
                 jit_enum!(0, Felt::from(5678).into()),
@@ -632,24 +706,34 @@ mod test {
                 jit_enum!(3, 34567890u32.into()),
                 jit_enum!(4, 1234567890123456u64.into()),
             ),
-        );
+            return_value
+        )
     }
 
     #[test]
     fn enum_match() {
-        run_program_assert_output(&ENUM_MATCH, "match_a", &[], Felt::from(5).into());
-        run_program_assert_output(&ENUM_MATCH, "match_b", &[], 5u8.into());
+        let return_value1 = run_sierra_program(&ENUM_MATCH_FELT, &[]).return_value;
+        assert_eq!(Value::from(Felt::from(5)), return_value1);
+        let return_value2 = run_sierra_program(&ENUM_MATCH_U8, &[]).return_value;
+        assert_eq!(Value::from(5u8), return_value2)
     }
 
     #[test]
     fn compile_enum_match_without_variants() {
-        let (_, program) = load_cairo! {
-            enum MyEnum {}
+        // enum MyEnum {}
+        // fn main(value: MyEnum) {
+        //     match value {}
+        // }
+        let program = ProgramParser::new().parse(r#"
+            type [0] = Enum<ut@program::program::MyEnum> [storable: true, drop: true, dup: true, zero_sized: false];
+            type [1] = Struct<ut@Tuple> [storable: true, drop: true, dup: true, zero_sized: true];
 
-            fn main(value: MyEnum) {
-                match value {}
-            }
-        };
+            libfunc [0] = enum_match<[0]>;
+
+            [0]([0]) { }; // 0
+
+            [0]@0([0]: [0]) -> ();
+        "#).map_err(|e| e.to_string()).unwrap();
 
         let native_context = NativeContext::new();
         native_context
