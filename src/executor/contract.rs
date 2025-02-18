@@ -448,10 +448,14 @@ impl AotContractExecutor {
                 ret_registers.as_mut_ptr(),
             );
         };
-        #[cfg(feature = "with-segfault-catcher")]
-        crate::utils::safe_runner::run_safely(run_trampoline).map_err(Error::SafeRunner)?;
-        #[cfg(not(feature = "with-segfault-catcher"))]
-        run_trampoline();
+        crate::utils::allocator::run_with_allocator(|| {
+            #[cfg(feature = "with-segfault-catcher")]
+            crate::utils::safe_runner::run_safely(run_trampoline).map_err(Error::SafeRunner)?;
+            #[cfg(not(feature = "with-segfault-catcher"))]
+            run_trampoline();
+
+            Result::Ok(())
+        })?;
 
         // Parse final gas.
         unsafe fn read_value<T>(ptr: &mut NonNull<()>) -> &T {

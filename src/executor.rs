@@ -6,7 +6,7 @@
 pub use self::{aot::AotNativeExecutor, contract::AotContractExecutor, jit::JitNativeExecutor};
 use crate::{
     arch::{AbiArgument, ValueWithInfoWrapper},
-    error::{panic::ToNativeAssertError, Error},
+    error::{panic::ToNativeAssertError, Error, Result},
     execution_result::{BuiltinStats, ExecutionResult},
     native_panic,
     runtime::BUILTIN_COSTS,
@@ -79,7 +79,7 @@ fn invoke_dynamic(
             Option<extern "C" fn(*mut c_void, *mut c_void)>,
             Option<extern "C" fn(*mut c_void)>,
         ),
-) -> Result<ExecutionResult, Error> {
+) -> Result<ExecutionResult> {
     tracing::info!("Invoking function with signature: {function_signature:?}.");
     let arena = Bump::new();
     let mut invoke_data = Vec::<u8>::new();
@@ -106,7 +106,7 @@ fn invoke_dynamic(
 
             Ok((!(type_info.is_builtin() && is_zst)).then_some(id)).transpose()
         })
-        .collect::<Result<Vec<_>, _>>()?
+        .collect::<Result<Vec<_>>>()?
         .into_iter()
         .peekable();
 
@@ -120,7 +120,7 @@ fn invoke_dynamic(
     {
         let layout = ret_types_iter.try_fold(Layout::new::<()>(), |layout, id| {
             let type_info = registry.get_type(id)?;
-            Result::<_, Error>::Ok(layout.extend(type_info.layout(registry)?)?.0)
+            Result::Ok(layout.extend(type_info.layout(registry)?)?.0)
         })?;
 
         let return_ptr = arena.alloc_layout(layout).cast::<()>();
@@ -223,10 +223,14 @@ fn invoke_dynamic(
             ret_registers.as_mut_ptr(),
         );
     };
-    #[cfg(feature = "with-segfault-catcher")]
-    crate::utils::safe_runner::run_safely(run_trampoline).map_err(Error::SafeRunner)?;
-    #[cfg(not(feature = "with-segfault-catcher"))]
-    run_trampoline();
+    crate::utils::allocator::run_with_allocator(|| {
+        #[cfg(feature = "with-segfault-catcher")]
+        crate::utils::safe_runner::run_safely(run_trampoline).map_err(Error::SafeRunner)?;
+        #[cfg(not(feature = "with-segfault-catcher"))]
+        run_trampoline();
+
+        Result::Ok(())
+    })?;
 
     // Restore the previous syscall handler and builtin costs.
     #[cfg(feature = "with-cheatcode")]
@@ -387,7 +391,7 @@ fn parse_result(
     mut return_ptr: Option<NonNull<()>>,
     #[cfg(target_arch = "x86_64")] mut ret_registers: [u64; 2],
     #[cfg(target_arch = "aarch64")] mut ret_registers: [u64; 4],
-) -> Result<Value, Error> {
+) -> Result<Value> {
     let type_info = registry.get_type(type_id)?;
 
     // Align the pointer to the actual return value.
