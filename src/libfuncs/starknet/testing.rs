@@ -115,7 +115,5 @@ pub fn build<'ctx, 'this>(
         location,
         LoadStoreOptions::new(),
     ))?;
-    entry.append_operation(helper.br(0, &[result], location));
-
-    Ok(())
+    helper.br(entry, 0, &[result], location)
 }

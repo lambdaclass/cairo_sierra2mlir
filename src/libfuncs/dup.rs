@@ -18,7 +18,7 @@ use cairo_lang_sierra::{
     program_registry::ProgramRegistry,
 };
 use melior::{
-    ir::{Block, BlockLike, Location},
+    ir::{Block, Location},
     Context,
 };
 
@@ -45,7 +45,5 @@ pub fn build<'ctx, 'this>(
             &info.signature.param_signatures[0].ty,
             entry.arg(0)?,
         )?;
-    entry.append_operation(helper.br(0, &[values.0, values.1], location));
-
-    Ok(())
+    helper.br(entry, 0, &[values.0, values.1], location)
 }

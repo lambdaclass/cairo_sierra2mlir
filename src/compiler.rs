@@ -524,26 +524,6 @@ fn compile_func(
 
                     let (state, _) = edit_state::take_args(state, invocation.args.iter())?;
 
-                    let helper = LibfuncHelper {
-                        module,
-                        init_block: &pre_entry_block,
-                        region: &region,
-                        blocks_arena: &blocks_arena,
-                        last_block: Cell::new(block),
-                        branches: generate_branching_targets(
-                            &blocks,
-                            statements,
-                            statement_idx,
-                            invocation,
-                            &state,
-                        ),
-                        results: invocation
-                            .branches
-                            .iter()
-                            .map(|x| vec![Cell::new(None); x.results.len()])
-                            .collect::<Vec<_>>(),
-                    };
-
                     let libfunc = registry.get_libfunc(&invocation.libfunc_id)?;
                     if is_recursive {
                         if let Some(target) = libfunc.is_function_call() {
@@ -594,6 +574,45 @@ fn compile_func(
                         }
                     }
 
+                    #[allow(unused_mut)]
+                    let mut helper = LibfuncHelper {
+                        module,
+                        init_block: &pre_entry_block,
+                        region: &region,
+                        blocks_arena: &blocks_arena,
+                        last_block: Cell::new(block),
+                        branches: generate_branching_targets(
+                            &blocks,
+                            statements,
+                            statement_idx,
+                            invocation,
+                            &state,
+                        ),
+                        results: invocation
+                            .branches
+                            .iter()
+                            .map(|x| vec![Cell::new(None); x.results.len()])
+                            .collect::<Vec<_>>(),
+
+                        #[cfg(feature = "with-profiler")]
+                        profiler: match libfunc {
+                            CoreConcreteLibfunc::FunctionCall(_) => {
+                                // Tail-recursive function calls are broken. Also it'd include the entire function which
+                                // doesn't make sense, therefore it's ignored on purpose.
+                                None
+                            }
+                            _ => match metadata.remove::<crate::metadata::profiler::ProfilerMeta>()
+                            {
+                                Some(profiler_meta) => {
+                                    let t0 = profiler_meta
+                                        .measure_timestamp(context, block, location)?;
+                                    Some((profiler_meta, statement_idx, t0))
+                                }
+                                None => None,
+                            },
+                        },
+                    };
+
                     libfunc.build(
                         context,
                         registry,
@@ -607,6 +626,11 @@ fn compile_func(
                         "libfunc {} had no terminator",
                         libfunc_name
                     );
+
+                    #[cfg(feature = "with-profiler")]
+                    if let Some((profiler_meta, _, _)) = helper.profiler.take() {
+                        metadata.insert(profiler_meta);
+                    }
 
                     if let Some(tailrec_meta) = metadata.remove::<TailRecursionMeta>() {
                         if let Some(return_block) = tailrec_meta.return_target() {

@@ -94,9 +94,8 @@ pub fn build_init<'ctx, 'this>(
         &info.signature.param_signatures[0].ty,
         info.index,
     )?;
-    entry.append_operation(helper.br(0, &[val], location));
 
-    Ok(())
+    helper.br(entry, 0, &[val], location)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -246,9 +245,7 @@ pub fn build_from_bounded_int<'ctx, 'this>(
     let value = entry.append_op_result(llvm::undef(enum_ty, location))?;
     let value = entry.insert_value(context, location, value, tag_value, 0)?;
 
-    entry.append_operation(helper.br(0, &[value], location));
-
-    Ok(())
+    helper.br(entry, 0, &[value], location)
 }
 
 /// Generate MLIR operations for the `enum_match` libfunc.
@@ -283,7 +280,7 @@ pub fn build_match<'ctx, 'this>(
             entry.append_operation(llvm::unreachable(location));
         }
         1 => {
-            entry.append_operation(helper.br(0, &[entry.arg(0)?], location));
+            helper.br(entry, 0, &[entry.arg(0)?], location)?;
         }
         _ => {
             let (layout, (tag_ty, _), variant_tys) = crate::types::r#enum::get_type_for_variants(
@@ -400,7 +397,7 @@ pub fn build_match<'ctx, 'this>(
                     }
                 };
 
-                block.append_operation(helper.br(i, &[payload_val], location));
+                helper.br(block, i, &[payload_val], location)?;
             }
         }
     }
@@ -444,7 +441,7 @@ pub fn build_snapshot_match<'ctx, 'this>(
             entry.append_operation(llvm::unreachable(location));
         }
         1 => {
-            entry.append_operation(helper.br(0, &[entry.arg(0)?], location));
+            helper.br(entry, 0, &[entry.arg(0)?], location)?;
         }
         _ => {
             let (layout, (tag_ty, _), variant_tys) = crate::types::r#enum::get_type_for_variants(
@@ -542,7 +539,7 @@ pub fn build_snapshot_match<'ctx, 'this>(
                     }
                 };
 
-                block.append_operation(helper.br(i, &[payload_val], location));
+                helper.br(block, i, &[payload_val], location)?;
             }
         }
     }

@@ -19,7 +19,7 @@ use cairo_lang_sierra::{
 };
 use melior::{
     dialect::arith::{self, CmpiPredicate},
-    ir::{r#type::IntegerType, Block, BlockLike, Location, Value, ValueLike},
+    ir::{r#type::IntegerType, Block, Location, Value, ValueLike},
     Context,
 };
 use num_bigint::{BigInt, Sign};
@@ -60,14 +60,14 @@ pub fn build_downcast<'ctx, 'this>(
 
     if info.signature.param_signatures[1].ty == info.signature.branch_signatures[0].vars[1].ty {
         let k0 = entry.const_int(context, location, 0, 1)?;
-        entry.append_operation(helper.cond_br(
+        return helper.cond_br(
             context,
+            entry,
             k0,
             [0, 1],
             [&[range_check, src_value], &[range_check]],
             location,
-        ));
-        return Ok(());
+        );
     }
 
     let src_ty = registry.get_type(&info.signature.param_signatures[1].ty)?;
@@ -183,13 +183,14 @@ pub fn build_downcast<'ctx, 'this>(
 
         let is_in_bounds = entry.const_int(context, location, 1, 1)?;
 
-        entry.append_operation(helper.cond_br(
+        helper.cond_br(
             context,
+            entry,
             is_in_bounds,
             [0, 1],
             [&[range_check, dst_value], &[range_check]],
             location,
-        ));
+        )?;
     } else {
         let lower_check = if dst_range.lower > src_range.lower {
             let dst_lower = entry.const_int_from_type(
@@ -267,13 +268,14 @@ pub fn build_downcast<'ctx, 'this>(
         } else {
             dst_value
         };
-        entry.append_operation(helper.cond_br(
+        helper.cond_br(
             context,
+            entry,
             is_in_bounds,
             [0, 1],
             [&[range_check, dst_value], &[range_check]],
             location,
-        ));
+        )?;
     }
 
     Ok(())
@@ -292,8 +294,7 @@ pub fn build_upcast<'ctx, 'this>(
     let src_value = entry.arg(0)?;
 
     if info.signature.param_signatures[0].ty == info.signature.branch_signatures[0].vars[0].ty {
-        entry.append_operation(helper.br(0, &[src_value], location));
-        return Ok(());
+        return helper.br(entry, 0, &[src_value], location);
     }
 
     let src_ty = registry.get_type(&info.signature.param_signatures[0].ty)?;
@@ -383,8 +384,7 @@ pub fn build_upcast<'ctx, 'this>(
         dst_value
     };
 
-    entry.append_operation(helper.br(0, &[dst_value], location));
-    Ok(())
+    helper.br(entry, 0, &[dst_value], location)
 }
 
 #[cfg(test)]

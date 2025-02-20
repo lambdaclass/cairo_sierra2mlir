@@ -18,7 +18,7 @@ use cairo_lang_sierra::{
 };
 use melior::{
     dialect::ods,
-    ir::{r#type::IntegerType, Block, BlockLike, Location},
+    ir::{r#type::IntegerType, Block, Location},
     Context,
 };
 
@@ -104,9 +104,7 @@ pub fn build_hades_permutation<'ctx>(
     let op1 = entry.trunci(op1_i256, felt252_ty, location)?;
     let op2 = entry.trunci(op2_i256, felt252_ty, location)?;
 
-    entry.append_operation(helper.br(0, &[poseidon_builtin, op0, op1, op2], location));
-
-    Ok(())
+    helper.br(entry, 0, &[poseidon_builtin, op0, op1, op2], location)
 }
 
 #[cfg(test)]

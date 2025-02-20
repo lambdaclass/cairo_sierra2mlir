@@ -54,6 +54,7 @@ scarb = ["build-cli", "dep:scarb-ui", "dep:scarb-metadata"]
 with-cheatcode = []
 with-debug-utils = []
 with-mem-tracing = []
+with-profiler = []
 with-segfault-catcher = []
 
 # the aquamarine dep is only used in docs and cannot be detected as used by cargo udeps

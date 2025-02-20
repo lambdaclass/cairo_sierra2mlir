@@ -225,12 +225,12 @@ fn build_bitwise<'ctx, 'this>(
     let logical_xor = entry.append_op_result(arith::xori(lhs, rhs, location))?;
     let logical_or = entry.append_op_result(arith::ori(lhs, rhs, location))?;
 
-    entry.append_operation(helper.br(
+    helper.br(
+        entry,
         0,
         &[bitwise, logical_and, logical_xor, logical_or],
         location,
-    ));
-    Ok(())
+    )
 }
 
 fn build_byte_reverse<'ctx, 'this>(
@@ -247,8 +247,7 @@ fn build_byte_reverse<'ctx, 'this>(
     let value =
         entry.append_op_result(ods::llvm::intr_bswap(context, entry.arg(1)?, location).into())?;
 
-    entry.append_operation(helper.br(0, &[bitwise, value], location));
-    Ok(())
+    helper.br(entry, 0, &[bitwise, value], location)
 }
 
 fn build_const<'ctx, 'this, T>(
@@ -272,8 +271,7 @@ where
 
     let value = entry.const_int_from_type(context, location, info.c, value_ty)?;
 
-    entry.append_operation(helper.br(0, &[value], location));
-    Ok(())
+    helper.br(entry, 0, &[value], location)
 }
 
 fn build_diff<'ctx, 'this>(
@@ -293,14 +291,14 @@ fn build_diff<'ctx, 'this>(
     let is_greater_equal = entry.cmpi(context, CmpiPredicate::Sge, lhs, rhs, location)?;
     let value_difference = entry.append_op_result(arith::subi(lhs, rhs, location))?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         is_greater_equal,
         [0, 1],
         [&[range_check, value_difference]; 2],
         location,
-    ));
-    Ok(())
+    )
 }
 
 fn build_divmod<'ctx, 'this>(
@@ -320,8 +318,7 @@ fn build_divmod<'ctx, 'this>(
     let result_div = entry.append_op_result(arith::divui(lhs, rhs, location))?;
     let result_rem = entry.append_op_result(arith::remui(lhs, rhs, location))?;
 
-    entry.append_operation(helper.br(0, &[range_check, result_div, result_rem], location));
-    Ok(())
+    helper.br(entry, 0, &[range_check, result_div, result_rem], location)
 }
 
 fn build_equal<'ctx, 'this>(
@@ -341,8 +338,7 @@ fn build_equal<'ctx, 'this>(
         location,
     )?;
 
-    entry.append_operation(helper.cond_br(context, are_equal, [1, 0], [&[]; 2], location));
-    Ok(())
+    helper.cond_br(context, entry, are_equal, [1, 0], [&[]; 2], location)
 }
 
 fn build_from_felt252<'ctx, 'this>(
@@ -457,15 +453,14 @@ fn build_from_felt252<'ctx, 'this>(
 
     let value = entry.trunci(value, value_ty, location)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         is_in_range,
         [0, 1],
         [&[range_check, value], &[range_check]],
         location,
-    ));
-
-    Ok(())
+    )
 }
 
 fn build_guarantee_mul<'ctx, 'this>(
@@ -494,8 +489,7 @@ fn build_guarantee_mul<'ctx, 'this>(
     let hi = mul_op.result(1)?.into();
 
     let guarantee = entry.append_op_result(llvm::undef(guarantee_ty, location))?;
-    entry.append_operation(helper.br(0, &[hi, lo, guarantee], location));
-    Ok(())
+    helper.br(entry, 0, &[hi, lo, guarantee], location)
 }
 
 fn build_is_zero<'ctx, 'this>(
@@ -512,8 +506,7 @@ fn build_is_zero<'ctx, 'this>(
     let k0 = entry.const_int_from_type(context, location, 0, input.r#type())?;
     let is_zero = entry.cmpi(context, CmpiPredicate::Eq, input, k0, location)?;
 
-    entry.append_operation(helper.cond_br(context, is_zero, [0, 1], [&[], &[input]], location));
-    Ok(())
+    helper.cond_br(context, entry, is_zero, [0, 1], [&[], &[input]], location)
 }
 
 fn build_mul_guarantee_verify<'ctx, 'this>(
@@ -527,8 +520,7 @@ fn build_mul_guarantee_verify<'ctx, 'this>(
 ) -> Result<()> {
     let range_check = super::increment_builtin_counter(context, entry, location, entry.arg(0)?)?;
 
-    entry.append_operation(helper.br(0, &[range_check], location));
-    Ok(())
+    helper.br(entry, 0, &[range_check], location)
 }
 
 fn build_operation<'ctx, 'this>(
@@ -592,30 +584,31 @@ fn build_operation<'ctx, 'this>(
             location,
         ));
 
-        block_in_range.append_operation(helper.br(0, &[range_check, result], location));
+        helper.br(block_in_range, 0, &[range_check, result], location)?;
 
         {
             let k0 = block_overflow.const_int_from_type(context, location, 0, result.r#type())?;
             let is_positive =
                 block_overflow.cmpi(context, CmpiPredicate::Sge, result, k0, location)?;
-            block_overflow.append_operation(helper.cond_br(
+            helper.cond_br(
                 context,
+                block_overflow,
                 is_positive,
                 [1, 2],
                 [&[range_check, result]; 2],
                 location,
-            ));
+            )
         }
     } else {
-        entry.append_operation(helper.cond_br(
+        helper.cond_br(
             context,
+            entry,
             overflow,
             [1, 0],
             [&[range_check, result]; 2],
             location,
-        ));
+        )
     }
-    Ok(())
 }
 
 fn build_square_root<'ctx, 'this>(
@@ -769,8 +762,7 @@ fn build_square_root<'ctx, 'this>(
         location,
     ))?;
 
-    entry.append_operation(helper.br(0, &[range_check, value], location));
-    Ok(())
+    helper.br(entry, 0, &[range_check, value], location)
 }
 
 fn build_to_felt252<'ctx, 'this>(
@@ -826,8 +818,7 @@ fn build_to_felt252<'ctx, 'this>(
         entry.extui(entry.arg(0)?, felt252_ty, location)?
     };
 
-    entry.append_operation(helper.br(0, &[value], location));
-    Ok(())
+    helper.br(entry, 0, &[value], location)
 }
 
 fn build_u128s_from_felt252<'ctx, 'this>(
@@ -852,14 +843,14 @@ fn build_u128s_from_felt252<'ctx, 'this>(
     let k0 = entry.const_int_from_type(context, location, 0, target_ty)?;
     let is_wide = entry.cmpi(context, CmpiPredicate::Ne, hi, k0, location)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         is_wide,
         [1, 0],
         [&[range_check, hi, lo], &[range_check, lo]],
         location,
-    ));
-    Ok(())
+    )
 }
 
 fn build_wide_mul<'ctx, 'this>(
@@ -894,8 +885,7 @@ fn build_wide_mul<'ctx, 'this>(
     let rhs = ext_fn(entry, entry.arg(1)?, result_ty, location)?;
     let result = entry.muli(lhs, rhs, location)?;
 
-    entry.append_operation(helper.br(0, &[result], location));
-    Ok(())
+    helper.br(entry, 0, &[result], location)
 }
 
 #[cfg(test)]

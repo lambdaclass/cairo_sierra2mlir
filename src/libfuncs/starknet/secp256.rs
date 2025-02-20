@@ -268,8 +268,9 @@ pub fn build_k1_new<'ctx, 'this>(
 
     let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         result_tag,
         [1, 0],
         [
@@ -277,8 +278,7 @@ pub fn build_k1_new<'ctx, 'this>(
             &[remaining_gas, entry.argument(1)?.into(), payload_ok],
         ],
         location,
-    ));
-    Ok(())
+    )
 }
 
 pub fn build_k1_add<'ctx, 'this>(
@@ -478,8 +478,9 @@ pub fn build_k1_add<'ctx, 'this>(
 
     let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         result_tag,
         [1, 0],
         [
@@ -487,8 +488,7 @@ pub fn build_k1_add<'ctx, 'this>(
             &[remaining_gas, entry.argument(1)?.into(), payload_ok],
         ],
         location,
-    ));
-    Ok(())
+    )
 }
 
 pub fn build_k1_mul<'ctx, 'this>(
@@ -688,8 +688,9 @@ pub fn build_k1_mul<'ctx, 'this>(
 
     let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         result_tag,
         [1, 0],
         [
@@ -697,8 +698,7 @@ pub fn build_k1_mul<'ctx, 'this>(
             &[remaining_gas, entry.argument(1)?.into(), payload_ok],
         ],
         location,
-    ));
-    Ok(())
+    )
 }
 
 pub fn build_k1_get_point_from_x<'ctx, 'this>(
@@ -891,8 +891,9 @@ pub fn build_k1_get_point_from_x<'ctx, 'this>(
 
     let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         result_tag,
         [1, 0],
         [
@@ -900,8 +901,7 @@ pub fn build_k1_get_point_from_x<'ctx, 'this>(
             &[remaining_gas, entry.argument(1)?.into(), payload_ok],
         ],
         location,
-    ));
-    Ok(())
+    )
 }
 
 pub fn build_k1_get_xy<'ctx, 'this>(
@@ -1135,8 +1135,9 @@ pub fn build_k1_get_xy<'ctx, 'this>(
 
     let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         result_tag,
         [1, 0],
         [
@@ -1149,8 +1150,7 @@ pub fn build_k1_get_xy<'ctx, 'this>(
             ],
         ],
         location,
-    ));
-    Ok(())
+    )
 }
 
 pub fn build_r1_new<'ctx, 'this>(
@@ -1350,8 +1350,9 @@ pub fn build_r1_new<'ctx, 'this>(
 
     let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         result_tag,
         [1, 0],
         [
@@ -1359,8 +1360,7 @@ pub fn build_r1_new<'ctx, 'this>(
             &[remaining_gas, entry.argument(1)?.into(), payload_ok],
         ],
         location,
-    ));
-    Ok(())
+    )
 }
 
 pub fn build_r1_add<'ctx, 'this>(
@@ -1560,8 +1560,9 @@ pub fn build_r1_add<'ctx, 'this>(
 
     let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         result_tag,
         [1, 0],
         [
@@ -1569,8 +1570,7 @@ pub fn build_r1_add<'ctx, 'this>(
             &[remaining_gas, entry.argument(1)?.into(), payload_ok],
         ],
         location,
-    ));
-    Ok(())
+    )
 }
 
 pub fn build_r1_mul<'ctx, 'this>(
@@ -1773,8 +1773,9 @@ pub fn build_r1_mul<'ctx, 'this>(
 
     let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         result_tag,
         [1, 0],
         [
@@ -1782,8 +1783,7 @@ pub fn build_r1_mul<'ctx, 'this>(
             &[remaining_gas, entry.argument(1)?.into(), payload_ok],
         ],
         location,
-    ));
-    Ok(())
+    )
 }
 
 pub fn build_r1_get_point_from_x<'ctx, 'this>(
@@ -1978,8 +1978,9 @@ pub fn build_r1_get_point_from_x<'ctx, 'this>(
 
     let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         result_tag,
         [1, 0],
         [
@@ -1987,8 +1988,7 @@ pub fn build_r1_get_point_from_x<'ctx, 'this>(
             &[remaining_gas, entry.argument(1)?.into(), payload_ok],
         ],
         location,
-    ));
-    Ok(())
+    )
 }
 
 pub fn build_r1_get_xy<'ctx, 'this>(
@@ -2224,8 +2224,9 @@ pub fn build_r1_get_xy<'ctx, 'this>(
 
     let remaining_gas = entry.load(context, location, gas_builtin_ptr, gas_ty)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         result_tag,
         [1, 0],
         [
@@ -2238,6 +2239,5 @@ pub fn build_r1_get_xy<'ctx, 'this>(
             ],
         ],
         location,
-    ));
-    Ok(())
+    )
 }

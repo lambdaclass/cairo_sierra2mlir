@@ -17,7 +17,7 @@ use cairo_lang_sierra::{
     program_registry::ProgramRegistry,
 };
 use melior::{
-    ir::{r#type::IntegerType, Block, BlockLike, Location},
+    ir::{r#type::IntegerType, Block, Location},
     Context,
 };
 
@@ -91,8 +91,7 @@ pub fn build_pedersen<'ctx>(
     let result = entry.load(context, location, dst_ptr, i256_ty)?;
     let result = entry.trunci(result, felt252_ty, location)?;
 
-    entry.append_operation(helper.br(0, &[pedersen_builtin, result], location));
-    Ok(())
+    helper.br(entry, 0, &[pedersen_builtin, result], location)
 }
 
 #[cfg(test)]

@@ -17,7 +17,7 @@ use cairo_lang_sierra::{
 };
 use melior::{
     dialect::{arith::CmpiPredicate, ods},
-    ir::{r#type::IntegerType, Block, BlockLike, Location},
+    ir::{r#type::IntegerType, Block, Location},
     Context,
 };
 
@@ -60,11 +60,12 @@ pub fn build_get_available_gas<'ctx, 'this>(
     _metadata: &mut MetadataStorage,
     _info: &SignatureOnlyConcreteLibfunc,
 ) -> Result<()> {
-    let gas = entry.arg(0)?;
-    let gas_u128 = entry.extui(gas, IntegerType::new(context, 128).into(), location)?;
+    let i128_ty = IntegerType::new(context, 128).into();
+
+    let gas_u128 = entry.extui(entry.arg(0)?, i128_ty, location)?;
+
     // The gas is returned as u128 on the second arg.
-    entry.append_operation(helper.br(0, &[entry.arg(0)?, gas_u128], location));
-    Ok(())
+    helper.br(entry, 0, &[entry.arg(0)?, gas_u128], location)
 }
 
 /// Generate MLIR operations for the `withdraw_gas` libfunc.
@@ -143,15 +144,14 @@ pub fn build_withdraw_gas<'ctx, 'this>(
         ods::llvm::intr_usub_sat(context, current_gas, total_gas_cost_value, location).into(),
     )?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         is_enough,
         [0, 1],
         [&[range_check, resulting_gas], &[range_check, current_gas]],
         location,
-    ));
-
-    Ok(())
+    )
 }
 
 /// Returns the unused gas to the remaining
@@ -226,9 +226,7 @@ pub fn build_redeposit_gas<'ctx, 'this>(
         ods::llvm::intr_uadd_sat(context, current_gas, total_gas_cost_value, location).into(),
     )?;
 
-    entry.append_operation(helper.br(0, &[resulting_gas], location));
-
-    Ok(())
+    helper.br(entry, 0, &[resulting_gas], location)
 }
 
 /// Generate MLIR operations for the `withdraw_gas_all` libfunc.
@@ -299,15 +297,14 @@ pub fn build_builtin_withdraw_gas<'ctx, 'this>(
         ods::llvm::intr_usub_sat(context, current_gas, total_gas_cost_value, location).into(),
     )?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         is_enough,
         [0, 1],
         [&[range_check, resulting_gas], &[range_check, current_gas]],
         location,
-    ));
-
-    Ok(())
+    )
 }
 
 /// Generate MLIR operations for the `get_builtin_costs` libfunc.
@@ -331,9 +328,7 @@ pub fn build_get_builtin_costs<'ctx, 'this>(
             .into()
     };
 
-    entry.append_operation(helper.br(0, &[builtin_ptr], location));
-
-    Ok(())
+    helper.br(entry, 0, &[builtin_ptr], location)
 }
 
 #[cfg(test)]

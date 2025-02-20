@@ -1,7 +1,8 @@
+use core::num::traits::WrappingSub;
+use core::num::traits::WrappingAdd;
 use core::{
-    traits::Default,
-    array::{ArrayTrait, SpanTrait}, debug::PrintTrait, dict::Felt252DictTrait,
-    integer::{u8_wrapping_add, u8_wrapping_sub}, option::OptionTrait, traits::Into,
+    traits::Default, array::{ArrayTrait, SpanTrait}, debug::PrintTrait, dict::Felt252DictTrait,
+    option::OptionTrait, traits::Into,
 };
 
 fn generate_jump_table(program: @Array<u8>) -> Felt252Dict<u32> {
@@ -50,9 +51,9 @@ fn run_program(program: @Array<u8>, input: Option<Span<u8>>) {
         } else if op_code == '<' {
             mp -= 1;
         } else if op_code == '+' {
-            memory.insert(mp, u8_wrapping_add(memory.get(mp), 1));
+            memory.insert(mp, memory.get(mp).wrapping_add(1));
         } else if op_code == '-' {
-            memory.insert(mp, u8_wrapping_sub(memory.get(mp), 1));
+            memory.insert(mp, memory.get(mp).wrapping_sub(1));
         } else if op_code == '.' {
             memory.get(mp).print();
         } else if op_code == ',' {

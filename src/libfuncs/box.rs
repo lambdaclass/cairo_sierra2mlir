@@ -107,8 +107,7 @@ pub fn build_into_box<'ctx, 'this>(
         ))),
     ));
 
-    entry.append_operation(helper.br(0, &[ptr], location));
-    Ok(())
+    helper.br(entry, 0, &[ptr], location)
 }
 
 /// Generate MLIR operations for the `unbox` libfunc.
@@ -146,8 +145,7 @@ pub fn build_unbox<'ctx, 'this>(
 
     entry.append_operation(ReallocBindingsMeta::free(context, entry.arg(0)?, location)?);
 
-    entry.append_operation(helper.br(0, &[value], location));
-    Ok(())
+    helper.br(entry, 0, &[value], location)
 }
 
 #[cfg(test)]

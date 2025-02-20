@@ -21,7 +21,7 @@ use melior::{
         arith::{self, CmpiPredicate},
         ods,
     },
-    ir::{Block, BlockLike, Location},
+    ir::{Block, Location},
     Context,
 };
 use num_bigint::BigInt;
@@ -82,14 +82,14 @@ pub fn build_int_range_try_new<'ctx, 'this>(
     let x_val = entry.append_op_result(arith::select(is_valid, x, y, location))?;
     let range = entry.insert_values(context, location, range, &[x_val, y])?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         is_valid,
         [0, 1],
         [&[range_check, range], &[range_check, range]],
         location,
-    ));
-    Ok(())
+    )
 }
 
 /// Generate MLIR operations for the `int_range_pop_front` libfunc.
@@ -128,14 +128,14 @@ pub fn build_int_range_pop_front<'ctx, 'this>(
     };
     let range = entry.insert_value(context, location, range, x_p_1, 0)?;
 
-    entry.append_operation(helper.cond_br(
+    helper.cond_br(
         context,
+        entry,
         is_valid,
         [1, 0], // failure, success
         [&[range, x], &[]],
         location,
-    ));
-    Ok(())
+    )
 }
 
 #[cfg(test)]

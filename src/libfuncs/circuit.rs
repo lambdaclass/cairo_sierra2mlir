@@ -124,9 +124,7 @@ fn build_init_circuit_data<'ctx, 'this>(
         &[k0],
     )?;
 
-    entry.append_operation(helper.br(0, &[rc, accumulator], location));
-
-    Ok(())
+    helper.br(entry, 0, &[rc, accumulator], location)
 }
 
 /// Generate MLIR operations for the `add_circuit_input` libfunc.
@@ -224,7 +222,7 @@ fn build_add_input<'ctx, 'this>(
         let accumulator =
             middle_insert_block.load(context, location, accumulator_ptr, accumulator.r#type())?;
 
-        middle_insert_block.append_operation(helper.br(1, &[accumulator], location));
+        helper.br(middle_insert_block, 1, &[accumulator], location)?;
     }
 
     // If is last insert, then:
@@ -298,7 +296,7 @@ fn build_add_input<'ctx, 'this>(
         // Load data from pointer
         let data = last_insert_block.load(context, location, data_ptr, data_type)?;
 
-        last_insert_block.append_operation(helper.br(0, &[data], location));
+        helper.br(last_insert_block, 0, &[data], location)?;
     }
 
     Ok(())
@@ -320,9 +318,14 @@ fn build_try_into_circuit_modulus<'ctx, 'this>(
 
     let is_valid = entry.cmpi(context, arith::CmpiPredicate::Ugt, modulus, k1, location)?;
 
-    entry.append_operation(helper.cond_br(context, is_valid, [0, 1], [&[modulus], &[]], location));
-
-    Ok(())
+    helper.cond_br(
+        context,
+        entry,
+        is_valid,
+        [0, 1],
+        [&[modulus], &[]],
+        location,
+    )
 }
 
 /// Generate MLIR operations for the `get_circuit_descriptor` libfunc.
@@ -342,9 +345,7 @@ fn build_get_descriptor<'ctx, 'this>(
 
     let unit = entry.append_op_result(llvm::undef(descriptor_type, location))?;
 
-    entry.append_operation(helper.br(0, &[unit], location));
-
-    Ok(())
+    helper.br(entry, 0, &[unit], location)
 }
 
 /// Generate MLIR operations for the `eval_circuit` libfunc.
@@ -427,7 +428,7 @@ fn build_eval<'ctx, 'this>(
             &[gates_array, modulus_struct],
         )?;
 
-        ok_block.append_operation(helper.br(0, &[add_mod, mul_mod, outputs], location));
+        helper.br(ok_block, 0, &[add_mod, mul_mod, outputs], location)?;
     }
 
     // Error case
@@ -452,7 +453,12 @@ fn build_eval<'ctx, 'this>(
             registry.build_type(context, helper, metadata, failure_type_id)?,
             location,
         ))?;
-        err_block.append_operation(helper.br(1, &[add_mod, mul_mod, partial, failure], location));
+        helper.br(
+            err_block,
+            1,
+            &[add_mod, mul_mod, partial, failure],
+            location,
+        )?;
     }
 
     Ok(())
@@ -725,9 +731,7 @@ fn build_failure_guarantee_verify<'ctx, 'this>(
 
     let guarantee = entry.append_op_result(llvm::undef(guarantee_type, location))?;
 
-    entry.append_operation(helper.br(0, &[rc, mul_mod, guarantee], location));
-
-    Ok(())
+    helper.br(entry, 0, &[rc, mul_mod, guarantee], location)
 }
 
 /// Generate MLIR operations for the `u96_limbs_less_than_guarantee_verify` libfunc.
@@ -775,7 +779,7 @@ fn build_u96_limbs_less_than_guarantee_verify<'ctx, 'this>(
 
     {
         // if there is diff, return it
-        diff_block.append_operation(helper.br(1, &[diff], location));
+        helper.br(diff_block, 1, &[diff], location)?;
     }
     {
         // if there is no diff, build a new guarantee, skipping last limb
@@ -814,7 +818,7 @@ fn build_u96_limbs_less_than_guarantee_verify<'ctx, 'this>(
             &[new_gate, new_modulus],
         )?;
 
-        next_block.append_operation(helper.br(0, &[new_guarantee], location));
+        helper.br(next_block, 0, &[new_guarantee], location)?;
     }
 
     Ok(())
@@ -881,9 +885,7 @@ fn build_get_output<'ctx, 'this>(
         &[output_struct, modulus_struct],
     )?;
 
-    entry.append_operation(helper.br(0, &[output_struct, guarantee], location));
-
-    Ok(())
+    helper.br(entry, 0, &[output_struct, guarantee], location)
 }
 
 fn u384_struct_to_integer<'a>(

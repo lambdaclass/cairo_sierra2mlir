@@ -65,8 +65,7 @@ fn build_null<'ctx, 'this>(
     let value = entry
         .append_op_result(ods::llvm::mlir_zero(context, pointer(context, 0), location).into())?;
 
-    entry.append_operation(helper.br(0, &[value], location));
-    Ok(())
+    helper.br(entry, 0, &[value], location)
 }
 
 /// Generate MLIR operations for the `match_nullable` libfunc.
@@ -109,8 +108,8 @@ fn build_match_nullable<'ctx, 'this>(
         location,
     ));
 
-    block_is_null.append_operation(helper.br(0, &[], location));
-    block_is_not_null.append_operation(helper.br(1, &[arg], location));
+    helper.br(block_is_null, 0, &[], location)?;
+    helper.br(block_is_not_null, 1, &[arg], location)?;
 
     Ok(())
 }

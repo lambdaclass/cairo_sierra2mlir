@@ -1,20 +1,18 @@
+use crate::{error::Result as NativeResult, native_panic};
 use cairo_lang_runner::token_gas_cost;
 use cairo_lang_sierra::{
     extensions::gas::CostTokenType,
     ids::FunctionId,
     program::{Program, StatementIdx},
 };
-use cairo_lang_sierra_ap_change::{ap_change_info::ApChangeInfo, calc_ap_changes};
 use cairo_lang_sierra_ap_change::{
+    ap_change_info::ApChangeInfo, calc_ap_changes,
     compute::calc_ap_changes as linear_calc_ap_changes, ApChangeError,
 };
 use cairo_lang_sierra_gas::{
     compute_postcost_info, compute_precost_info, gas_info::GasInfo, CostError,
 };
 use cairo_lang_utils::ordered_hash_map::OrderedHashMap;
-
-use crate::{error::Result as NativeResult, native_panic};
-
 use std::collections::BTreeMap;
 
 /// Holds global gas info.

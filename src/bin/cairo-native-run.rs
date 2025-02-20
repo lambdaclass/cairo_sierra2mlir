@@ -44,6 +44,10 @@ struct Args {
     /// Optimization level, Valid: 0, 1, 2, 3. Values higher than 3 are considered as 3.
     #[arg(short = 'O', long, default_value_t = 0)]
     opt_level: u8,
+
+    #[cfg(feature = "with-profiler")]
+    #[arg(long)]
+    profiler_output: Option<PathBuf>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -136,6 +140,105 @@ fn main() -> anyhow::Result<()> {
     }
     if let Some(gas) = result.remaining_gas {
         println!("Remaining gas: {gas}");
+    }
+
+    #[cfg(feature = "with-profiler")]
+    if let Some(profiler_output) = args.profiler_output {
+        use cairo_lang_sierra::{ids::ConcreteLibfuncId, program::Statement};
+        use std::{collections::HashMap, fs::File, io::Write};
+
+        let mut trace = HashMap::<ConcreteLibfuncId, (Vec<u64>, u64)>::new();
+
+        for (statement_idx, tick_delta) in cairo_native::metadata::profiler::ProfilerImpl::take() {
+            if let Statement::Invocation(invocation) = &sierra_program.statements[statement_idx.0] {
+                let (tick_deltas, extra_count) =
+                    trace.entry(invocation.libfunc_id.clone()).or_default();
+
+                if tick_delta != u64::MAX {
+                    tick_deltas.push(tick_delta);
+                } else {
+                    *extra_count += 1;
+                }
+            }
+        }
+
+        let mut trace = trace
+            .into_iter()
+            .map(|(libfunc_id, (mut tick_deltas, extra_count))| {
+                tick_deltas.sort();
+
+                // Drop outliers.
+                {
+                    let q1 = tick_deltas[tick_deltas.len() / 4];
+                    let q3 = tick_deltas[3 * tick_deltas.len() / 4];
+                    let iqr = q3 - q1;
+
+                    let q1_thr = q1.saturating_sub(iqr + iqr / 2);
+                    let q3_thr = q3 + (iqr + iqr / 2);
+
+                    tick_deltas.retain(|x| *x >= q1_thr && *x <= q3_thr);
+                }
+
+                // Compute the quartiles.
+                let quartiles = [
+                    *tick_deltas.first().unwrap(),
+                    tick_deltas[tick_deltas.len() / 4],
+                    tick_deltas[tick_deltas.len() / 2],
+                    tick_deltas[3 * tick_deltas.len() / 4],
+                    *tick_deltas.last().unwrap(),
+                ];
+
+                // Compuite the average.
+                let average =
+                    tick_deltas.iter().copied().sum::<u64>() as f64 / tick_deltas.len() as f64;
+
+                // Compute the standard deviation.
+                let std_dev = {
+                    let sum = tick_deltas
+                        .iter()
+                        .copied()
+                        .map(|x| x as f64)
+                        .map(|x| (x - average))
+                        .map(|x| x * x)
+                        .sum::<f64>();
+                    sum / (tick_deltas.len() as u64 + extra_count) as f64
+                };
+
+                (
+                    libfunc_id,
+                    (
+                        tick_deltas.len() as u64 + extra_count,
+                        tick_deltas.iter().sum::<u64>()
+                            + (extra_count as f64 * average).round() as u64,
+                        quartiles,
+                        average,
+                        std_dev,
+                    ),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        // Sort libfuncs by the order in which they are declared.
+        trace.sort_by_key(|(libfunc_id, _)| {
+            sierra_program
+                .libfunc_declarations
+                .iter()
+                .enumerate()
+                .find_map(|(i, x)| (&x.id == libfunc_id).then_some(i))
+                .unwrap()
+        });
+
+        let mut output = File::create(profiler_output)?;
+
+        for (libfunc_id, (n_samples, sum, quartiles, average, std_dev)) in trace {
+            writeln!(output, "{libfunc_id}")?;
+            writeln!(output, "    Samples  : {n_samples}")?;
+            writeln!(output, "    Sum      : {sum}")?;
+            writeln!(output, "    Average  : {average}")?;
+            writeln!(output, "    Deviation: {std_dev}")?;
+            writeln!(output, "    Quartiles: {quartiles:?}")?;
+            writeln!(output)?;
+        }
     }
 
     Ok(())

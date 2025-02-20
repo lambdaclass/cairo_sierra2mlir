@@ -121,7 +121,7 @@ pub fn build<'ctx, 'this>(
             }
         }
 
-        cont_block.append_operation(helper.br(0, &results, location));
+        helper.br(cont_block, 0, &results, location)?;
     } else {
         let mut result_types = Vec::new();
         let return_types = info
@@ -290,7 +290,7 @@ pub fn build<'ctx, 'this>(
             }
         }
 
-        entry.append_operation(helper.br(0, &results, location));
+        helper.br(entry, 0, &results, location)?;
     }
 
     if let Some(tailrec_meta) = tailrec_meta {

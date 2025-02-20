@@ -119,6 +119,9 @@ pub fn build_get<'ctx, 'this>(
                 last_block: Cell::new(&block),
                 branches: Vec::new(),
                 results: Vec::new(),
+
+                #[cfg(feature = "with-profiler")]
+                profiler: helper.profiler.clone(),
             };
 
             // When the entry is vacant we need to create the default value.
@@ -143,8 +146,7 @@ pub fn build_get<'ctx, 'this>(
     // `get`), the memory it occupied is not modified because we're expecting it to be overwritten
     // by the finalizer (in other words, the extracted element will be dropped twice).
 
-    entry.append_operation(helper.br(0, &[dict_entry, value], location));
-    Ok(())
+    helper.br(entry, 0, &[dict_entry, value], location)
 }
 
 /// The felt252_dict_entry_finalize libfunc receives the dict entry and a new value,
@@ -185,8 +187,7 @@ pub fn build_finalize<'ctx, 'this>(
 
     entry.store(context, location, value_ptr, new_value)?;
 
-    entry.append_operation(helper.br(0, &[dict_ptr], location));
-    Ok(())
+    helper.br(entry, 0, &[dict_ptr], location)
 }
 
 #[cfg(test)]

@@ -25,7 +25,7 @@ use cairo_lang_sierra::{
 };
 use melior::{
     dialect::{arith, cf},
-    ir::{Block, BlockLike, BlockRef, Location, Module, Operation, Region, Value},
+    ir::{Block, BlockLike, BlockRef, Location, Module, Region, Value},
     Context,
 };
 use num_bigint::BigInt;
@@ -271,6 +271,13 @@ where
 
     pub branches: Vec<(&'this Block<'ctx>, Vec<BranchArg<'ctx, 'this>>)>,
     pub results: Vec<Vec<Cell<Option<Value<'ctx, 'this>>>>>,
+
+    #[cfg(feature = "with-profiler")]
+    pub profiler: Option<(
+        crate::metadata::profiler::ProfilerMeta,
+        cairo_lang_sierra::program::StatementIdx,
+        (Value<'ctx, 'this>, Value<'ctx, 'this>),
+    )>,
 }
 
 impl<'ctx, 'this> LibfuncHelper<'ctx, 'this>
@@ -322,10 +329,11 @@ where
     /// used later on when required.
     fn br(
         &self,
+        block: &'this Block<'ctx>,
         branch: usize,
         results: &[Value<'ctx, 'this>],
         location: Location<'ctx>,
-    ) -> Operation<'ctx> {
+    ) -> Result<()> {
         let (successor, operands) = &self.branches[branch];
 
         for (dst, src) in self.results[branch].iter().zip(results) {
@@ -341,7 +349,11 @@ where
             })
             .collect::<Vec<_>>();
 
-        cf::br(successor, &destination_operands, location)
+        #[cfg(feature = "with-profiler")]
+        self.push_profiler_frame(unsafe { self.context().to_ref() }, block, location)?;
+
+        block.append_operation(cf::br(successor, &destination_operands, location));
+        Ok(())
     }
 
     /// Creates a conditional binary branching operation, potentially jumping out of the libfunc and
@@ -356,11 +368,12 @@ where
     fn cond_br(
         &self,
         context: &'ctx Context,
+        block: &'this Block<'ctx>,
         condition: Value<'ctx, 'this>,
         branches: [usize; 2],
         results: [&[Value<'ctx, 'this>]; 2],
         location: Location<'ctx>,
-    ) -> Operation<'ctx> {
+    ) -> Result<()> {
         let (block_true, args_true) = {
             let (successor, operands) = &self.branches[branches[0]];
 
@@ -399,7 +412,10 @@ where
             (*successor, destination_operands)
         };
 
-        cf::cond_br(
+        #[cfg(feature = "with-profiler")]
+        self.push_profiler_frame(context, block, location)?;
+
+        block.append_operation(cf::cond_br(
             context,
             condition,
             block_true,
@@ -407,7 +423,25 @@ where
             &args_true,
             &args_false,
             location,
-        )
+        ));
+        Ok(())
+    }
+
+    #[cfg(feature = "with-profiler")]
+    fn push_profiler_frame(
+        &self,
+        context: &'ctx Context,
+        block: &'this Block<'ctx>,
+        location: Location<'ctx>,
+    ) -> Result<()> {
+        if let Some((profiler_meta, statement_idx, t0)) = self.profiler.as_ref() {
+            let t0 = *t0;
+            let t1 = profiler_meta.measure_timestamp(context, block, location)?;
+
+            profiler_meta.push_frame(context, block, statement_idx.0, t0, t1, location)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -480,6 +514,5 @@ fn build_noop<'ctx, 'this, const N: usize, const PROCESS_BUILTINS: bool>(
         params.push(param_val);
     }
 
-    entry.append_operation(helper.br(0, &params, location));
-    Ok(())
+    helper.br(entry, 0, &params, location)
 }

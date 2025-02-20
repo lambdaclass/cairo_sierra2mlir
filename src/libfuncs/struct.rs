@@ -71,9 +71,7 @@ pub fn build_construct<'ctx, 'this>(
         &fields,
     )?;
 
-    entry.append_operation(helper.br(0, &[value], location));
-
-    Ok(())
+    helper.br(entry, 0, &[value], location)
 }
 
 /// Generate MLIR operations for the `struct_construct` libfunc.
@@ -117,7 +115,5 @@ pub fn build_deconstruct<'ctx, 'this>(
         fields.push(value);
     }
 
-    entry.append_operation(helper.br(0, &fields, location));
-
-    Ok(())
+    helper.br(entry, 0, &fields, location)
 }

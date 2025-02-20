@@ -21,6 +21,7 @@ pub mod dup_overrides;
 pub mod enum_snapshot_variants;
 pub mod felt252_dict;
 pub mod gas;
+pub mod profiler;
 pub mod realloc_bindings;
 pub mod runtime_bindings;
 pub mod tail_recursion;

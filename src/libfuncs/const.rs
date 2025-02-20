@@ -24,7 +24,7 @@ use cairo_lang_sierra::{
 };
 use melior::{
     dialect::llvm::{self, r#type::pointer},
-    ir::{Block, BlockLike, Location, Value},
+    ir::{Block, Location, Value},
     Context,
 };
 use num_bigint::Sign;
@@ -89,8 +89,7 @@ pub fn build_const_as_box<'ctx, 'this>(
     // Store constant in box
     entry.store(context, location, ptr, value)?;
 
-    entry.append_operation(helper.br(0, &[ptr], location));
-    Ok(())
+    helper.br(entry, 0, &[ptr], location)
 }
 
 /// Generate MLIR operations for the `const_as_immediate` libfunc.
@@ -114,8 +113,7 @@ pub fn build_const_as_immediate<'ctx, 'this>(
         context, registry, entry, location, helper, metadata, const_type,
     )?;
 
-    entry.append_operation(helper.br(0, &[value], location));
-    Ok(())
+    helper.br(entry, 0, &[value], location)
 }
 
 pub fn build_const_type_value<'ctx, 'this>(

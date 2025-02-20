@@ -17,7 +17,7 @@ use cairo_lang_sierra::{
 };
 use melior::{
     dialect::{arith, llvm},
-    ir::{r#type::IntegerType, Block, BlockLike, Location, Value},
+    ir::{r#type::IntegerType, Block, Location, Value},
     Context,
 };
 
@@ -140,7 +140,8 @@ pub fn build_divmod_u256<'ctx, 'this>(
 
     let guarantee = entry.append_op_result(llvm::undef(guarantee_type, location))?;
 
-    entry.append_operation(helper.br(
+    helper.br(
+        entry,
         0,
         &[
             range_check,
@@ -153,8 +154,7 @@ pub fn build_divmod_u256<'ctx, 'this>(
             guarantee,
         ],
         location,
-    ));
-    Ok(())
+    )
 }
 
 #[cfg(test)]
