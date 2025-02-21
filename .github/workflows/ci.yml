@@ -153,6 +153,54 @@ jobs:
       - name: test-cairo
         run: make test-cairo
 
+  test-ubuntu-old:
+    name: test ubuntu old (linux, amd64)
+    runs-on: ubuntu-20.04
+    env:
+      MLIR_SYS_190_PREFIX: /usr/lib/llvm-19/
+      LLVM_SYS_191_PREFIX: /usr/lib/llvm-19/
+      TABLEGEN_190_PREFIX: /usr/lib/llvm-19/
+      RUST_LOG: cairo_native=debug,cairo_native_test=debug
+    steps:
+      - uses: actions/checkout@v4
+      - name: check and free hdd space left
+        run: |
+          echo "Listing 20 largest packages"
+          dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n | tail -n 20
+          df -h
+          sudo apt-get update
+          sudo apt-get remove -y '^llvm-.*'
+          sudo apt-get remove -y 'php.*'
+          sudo apt-get remove -y '^dotnet-.*'
+          sudo apt-get remove -y '^temurin-.*'
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          df -h
+          echo "Removing large directories"
+          # deleting 15GB
+          sudo rm -rf /usr/share/dotnet/
+          sudo rm -rf /usr/local/lib/android
+          df -h
+      - name: Setup rust env
+        uses: dtolnay/rust-toolchain@1.84.1
+      - name: Retreive cached dependecies
+        uses: Swatinem/rust-cache@v2
+      - name: add llvm deb repository
+        uses: myci-actions/add-deb-repo@11
+        with:
+          repo: deb http://apt.llvm.org/focal/ llvm-toolchain-focal-19 main
+          repo-name: llvm-repo
+          keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
+      - run: sudo apt-get update && sudo apt-get upgrade -y
+      - name: Install LLVM
+        run: sudo apt-get install libzstd-dev  llvm-19 llvm-19-dev llvm-19-runtime clang-19 clang-tools-19 lld-19 libpolly-19-dev libmlir-19-dev mlir-19-tools
+      - name: Install deps
+        run: make deps
+      - name: test
+        run: make test-ci
+      - name: test-cairo
+        run: make test-cairo
+
   test_macos:
     name: Test (macOS, Apple silicon)
     runs-on: macos-14
