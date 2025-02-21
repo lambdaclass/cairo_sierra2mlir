@@ -54,6 +54,9 @@ impl AotNativeExecutor {
 
         setup_runtime(|name| executor.find_symbol_ptr(name));
 
+        #[cfg(feature = "with-trace-dump")]
+        crate::metadata::trace_dump::setup_runtime(|name| executor.find_symbol_ptr(name));
+
         executor
     }
 

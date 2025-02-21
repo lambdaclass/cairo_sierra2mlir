@@ -299,6 +299,9 @@ impl AotContractExecutor {
 
         setup_runtime(|x| executor.find_symbol_ptr(x));
 
+        #[cfg(feature = "with-trace-dump")]
+        crate::metadata::trace_dump::setup_runtime(|name| executor.find_symbol_ptr(name));
+
         Ok(Some(executor))
     }
 
