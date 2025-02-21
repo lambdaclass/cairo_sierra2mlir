@@ -10,10 +10,10 @@ use cairo_native::{
     starknet_stub::StubSyscallHandler,
 };
 use clap::{Parser, ValueEnum};
+use starknet_types_core::felt::Felt;
 use std::path::PathBuf;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 use utils::{find_function, result_to_runresult};
-
 mod utils;
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -62,6 +62,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut db = RootDatabase::builder().detect_corelib().build()?;
     let main_crate_ids = setup_project(&mut db, &args.path)?;
+
+    cairo_native::metadata::profiler::ProfilerImpl::push_contract(Felt::ZERO);
 
     let sierra_program = compile_prepared_db(
         &db,
@@ -149,15 +151,19 @@ fn main() -> anyhow::Result<()> {
 
         let mut trace = HashMap::<ConcreteLibfuncId, (Vec<u64>, u64)>::new();
 
-        for (statement_idx, tick_delta) in cairo_native::metadata::profiler::ProfilerImpl::take() {
-            if let Statement::Invocation(invocation) = &sierra_program.statements[statement_idx.0] {
-                let (tick_deltas, extra_count) =
-                    trace.entry(invocation.libfunc_id.clone()).or_default();
+        for (_, contract_trace) in cairo_native::metadata::profiler::ProfilerImpl::take() {
+            for (statement_idx, tick_delta) in contract_trace {
+                if let Statement::Invocation(invocation) =
+                    &sierra_program.statements[statement_idx.0]
+                {
+                    let (tick_deltas, extra_count) =
+                        trace.entry(invocation.libfunc_id.clone()).or_default();
 
-                if tick_delta != u64::MAX {
-                    tick_deltas.push(tick_delta);
-                } else {
-                    *extra_count += 1;
+                    if tick_delta != u64::MAX {
+                        tick_deltas.push(tick_delta);
+                    } else {
+                        *extra_count += 1;
+                    }
                 }
             }
         }

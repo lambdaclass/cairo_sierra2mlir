@@ -16,7 +16,8 @@ use melior::{
     },
     Context,
 };
-use std::{cell::UnsafeCell, mem};
+use starknet_types_core::felt::Felt;
+use std::{cell::UnsafeCell, collections::HashMap, mem};
 
 #[derive(Clone)]
 pub struct ProfilerMeta {
@@ -194,26 +195,47 @@ impl ProfilerMeta {
 }
 
 thread_local! {
-    static PROFILER_IMPL: UnsafeCell<ProfilerImpl> = const { UnsafeCell::new(ProfilerImpl::new()) };
+    static PROFILER_IMPL: UnsafeCell<ProfilerImpl> = UnsafeCell::new(ProfilerImpl::new()) ;
 }
 
 pub struct ProfilerImpl {
-    trace: Vec<(StatementIdx, u64)>,
+    traces: HashMap<Felt, Vec<(StatementIdx, u64)>>,
+    contracts: Vec<Felt>,
 }
 
 impl ProfilerImpl {
-    const fn new() -> Self {
-        Self { trace: Vec::new() }
+    fn new() -> Self {
+        Self {
+            traces: HashMap::new(),
+            contracts: Vec::new(),
+        }
     }
 
-    pub fn take() -> Vec<(StatementIdx, u64)> {
+    pub fn push_contract(hash: Felt) {
         PROFILER_IMPL.with(|x| {
             let x = unsafe { &mut *x.get() };
 
-            let mut trace = Vec::new();
-            mem::swap(&mut x.trace, &mut trace);
+            x.contracts.push(hash.clone());
+            x.traces.entry(hash).or_insert(Vec::new());
+        })
+    }
 
-            trace
+    pub fn pop_contract(&mut self) {
+        PROFILER_IMPL.with(|x| {
+            let x = unsafe { &mut *x.get() };
+
+            x.contracts.pop();
+        })
+    }
+
+    pub fn take() -> HashMap<Felt, Vec<(StatementIdx, u64)>> {
+        PROFILER_IMPL.with(|x| {
+            let x = unsafe { &mut *x.get() };
+
+            let mut traces = HashMap::new();
+            mem::swap(&mut x.traces, &mut traces);
+
+            traces
         })
     }
 
@@ -221,7 +243,9 @@ impl ProfilerImpl {
         PROFILER_IMPL.with(|x| {
             let x = unsafe { &mut *x.get() };
 
-            x.trace
+            x.traces
+                .get_mut(x.contracts.last().unwrap())
+                .unwrap()
                 .push((StatementIdx(statement_idx as usize), tick_delta));
         });
     }
