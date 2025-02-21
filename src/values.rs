@@ -226,8 +226,7 @@ impl Value {
                         let elem_layout = elem_ty.layout(registry)?.pad_to_align();
 
                         let refcount_offset = get_integer_layout(32)
-                            .align_to(elem_layout.align())
-                            .unwrap()
+                            .align_to(elem_layout.align())?
                             .pad_to_align()
                             .size();
                         let ptr = match elem_layout.size() * data.len() {
@@ -619,8 +618,7 @@ impl Value {
                         init_data_ptr.byte_add(elem_stride * start_offset_value as usize);
 
                     let refcount_offset = get_integer_layout(32)
-                        .align_to(elem_layout.align())
-                        .unwrap()
+                        .align_to(elem_layout.align())?
                         .pad_to_align()
                         .size();
                     let should_drop = if !init_data_ptr.is_null()
@@ -629,11 +627,9 @@ impl Value {
                         should_drop
                     } else {
                         if !init_data_ptr.is_null() && should_drop {
-                            *init_data_ptr
-                                .byte_sub(refcount_offset)
-                                .cast::<u32>()
-                                .as_mut()
-                                .unwrap() -= 1;
+                            let ref_count_ptr =
+                                init_data_ptr.byte_sub(refcount_offset).cast::<u32>();
+                            *ref_count_ptr -= 1;
                         }
 
                         false

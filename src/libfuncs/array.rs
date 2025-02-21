@@ -712,7 +712,7 @@ pub fn build_append<'ctx, 'this>(
 
             metadata
                 .get::<DropOverridesMeta>()
-                .unwrap()
+                .to_native_assert_error("drop overrides meta should exist")?
                 .invoke_override(
                     context,
                     &block,
@@ -1245,7 +1245,7 @@ fn build_pop<'ctx, 'this, const CONSUME: bool, const REVERSE: bool>(
 
                     metadata
                         .get::<DropOverridesMeta>()
-                        .unwrap()
+                        .to_native_assert_error("drop overrides meta should exist")?
                         .invoke_override(context, &block, location, self_ty, array_value)?;
 
                     clone_ptr
@@ -1341,7 +1341,7 @@ fn build_pop<'ctx, 'this, const CONSUME: bool, const REVERSE: bool>(
 
             metadata
                 .get::<DropOverridesMeta>()
-                .unwrap()
+                .to_native_assert_error("drop overrides meta should exist")?
                 .invoke_override(context, error_block, location, self_ty, array_value)?;
         } else {
             branch_values.push(array_value);
@@ -1460,7 +1460,7 @@ pub fn build_get<'ctx, 'this>(
 
                 metadata
                     .get::<DropOverridesMeta>()
-                    .unwrap()
+                    .to_native_assert_error("drop overrides meta should exist")?
                     .invoke_override(
                         context,
                         &block,
@@ -1566,7 +1566,7 @@ pub fn build_get<'ctx, 'this>(
     {
         metadata
             .get::<DropOverridesMeta>()
-            .unwrap()
+            .to_native_assert_error("drop overrides meta should exist")?
             .invoke_override(
                 context,
                 error_block,
@@ -1792,7 +1792,7 @@ pub fn build_slice<'ctx, 'this>(
 
                         metadata
                             .get::<DropOverridesMeta>()
-                            .unwrap()
+                            .to_native_assert_error("drop overrides meta should exist")?
                             .invoke_override(
                                 context,
                                 &block,
@@ -1964,7 +1964,7 @@ pub fn build_len<'ctx, 'this>(
 
     metadata
         .get::<DropOverridesMeta>()
-        .unwrap()
+        .to_native_assert_error("drop overrides meta should exist")?
         .invoke_override(
             context,
             entry,
