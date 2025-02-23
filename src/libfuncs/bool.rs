@@ -209,65 +209,64 @@ pub fn build_bool_to_felt252<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
+    use cairo_lang_sierra::extensions::boolean::{
+        BoolAndLibfunc, BoolNotLibfunc, BoolOrLibfunc, BoolToFelt252Libfunc, BoolXorLibfunc,
+    };
+
     use crate::{
-        utils::test::{jit_enum, jit_struct, load_cairo, run_program},
+        utils::{
+            sierra_gen::SierraGenerator,
+            test::{jit_enum, jit_struct, run_sierra_program},
+        },
         values::Value,
     };
 
     #[test]
     fn run_not() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program = {
+            let sierra_generator = SierraGenerator::<BoolNotLibfunc>::default();
 
-            fn run_test(a: bool) -> bool {
-                !a
-            }
-        );
+            sierra_generator.build(&[])
+        };
 
-        let result = run_program(&program, "run_test", &[jit_enum!(0, jit_struct!())]).return_value;
+        let result = run_sierra_program(&program, &[jit_enum!(0, jit_struct!())]).return_value;
         assert_eq!(result, jit_enum!(1, jit_struct!()));
 
-        let result = run_program(&program, "run_test", &[jit_enum!(1, jit_struct!())]).return_value;
+        let result = run_sierra_program(&program, &[jit_enum!(1, jit_struct!())]).return_value;
         assert_eq!(result, jit_enum!(0, jit_struct!()));
     }
 
     #[test]
     fn run_and() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program = {
+            let sierra_generator = SierraGenerator::<BoolAndLibfunc>::default();
 
-            fn run_test(a: bool, b: bool) -> bool {
-                a && b
-            }
-        );
+            sierra_generator.build(&[])
+        };
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(1, jit_struct!()), jit_enum!(1, jit_struct!())],
         )
         .return_value;
         assert_eq!(result, jit_enum!(1, jit_struct!()));
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(1, jit_struct!()), jit_enum!(0, jit_struct!())],
         )
         .return_value;
         assert_eq!(result, jit_enum!(0, jit_struct!()));
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(0, jit_struct!()), jit_enum!(1, jit_struct!())],
         )
         .return_value;
         assert_eq!(result, jit_enum!(0, jit_struct!()));
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(0, jit_struct!()), jit_enum!(0, jit_struct!())],
         )
         .return_value;
@@ -276,41 +275,35 @@ mod test {
 
     #[test]
     fn run_xor() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program = {
+            let sierra_generator = SierraGenerator::<BoolXorLibfunc>::default();
 
-            fn run_test(a: bool, b: bool) -> bool {
-                a ^ b
-            }
-        );
+            sierra_generator.build(&[])
+        };
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(1, jit_struct!()), jit_enum!(1, jit_struct!())],
         )
         .return_value;
         assert_eq!(result, jit_enum!(0, jit_struct!()));
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(1, jit_struct!()), jit_enum!(0, jit_struct!())],
         )
         .return_value;
         assert_eq!(result, jit_enum!(1, jit_struct!()));
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(0, jit_struct!()), jit_enum!(1, jit_struct!())],
         )
         .return_value;
         assert_eq!(result, jit_enum!(1, jit_struct!()));
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(0, jit_struct!()), jit_enum!(0, jit_struct!())],
         )
         .return_value;
@@ -319,41 +312,35 @@ mod test {
 
     #[test]
     fn run_or() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program = {
+            let sierra_generator = SierraGenerator::<BoolOrLibfunc>::default();
 
-            fn run_test(a: bool, b: bool) -> bool {
-                a || b
-            }
-        );
+            sierra_generator.build(&[])
+        };
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(1, jit_struct!()), jit_enum!(1, jit_struct!())],
         )
         .return_value;
         assert_eq!(result, jit_enum!(1, jit_struct!()));
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(1, jit_struct!()), jit_enum!(0, jit_struct!())],
         )
         .return_value;
         assert_eq!(result, jit_enum!(1, jit_struct!()));
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(0, jit_struct!()), jit_enum!(1, jit_struct!())],
         )
         .return_value;
         assert_eq!(result, jit_enum!(1, jit_struct!()));
 
-        let result = run_program(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[jit_enum!(0, jit_struct!()), jit_enum!(0, jit_struct!())],
         )
         .return_value;
@@ -362,16 +349,16 @@ mod test {
 
     #[test]
     fn bool_to_felt252() {
-        let program = load_cairo!(
-            fn run_test(a: bool) -> felt252 {
-                bool_to_felt252(a)
-            }
-        );
+        let program = {
+            let sierra_generator = SierraGenerator::<BoolToFelt252Libfunc>::default();
 
-        let result = run_program(&program, "run_test", &[jit_enum!(1, jit_struct!())]).return_value;
+            sierra_generator.build(&[])
+        };
+
+        let result = run_sierra_program(&program, &[jit_enum!(1, jit_struct!())]).return_value;
         assert_eq!(result, Value::Felt252(1.into()));
 
-        let result = run_program(&program, "run_test", &[jit_enum!(0, jit_struct!())]).return_value;
+        let result = run_sierra_program(&program, &[jit_enum!(0, jit_struct!())]).return_value;
         assert_eq!(result, Value::Felt252(0.into()));
     }
 }

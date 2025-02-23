@@ -111,28 +111,33 @@ pub fn build_hades_permutation<'ctx>(
 
 #[cfg(test)]
 mod test {
-    use crate::utils::test::{jit_struct, load_cairo, run_program_assert_output};
+    use crate::utils::{
+        sierra_gen::SierraGenerator,
+        test::{jit_struct, run_sierra_program},
+    };
 
+    use cairo_lang_sierra::extensions::poseidon::HadesPermutationLibfunc;
     use starknet_types_core::felt::Felt;
 
     #[test]
     fn run_hades_permutation() {
-        let program = load_cairo!(
-            use core::poseidon::hades_permutation;
+        let program = {
+            let generator = SierraGenerator::<HadesPermutationLibfunc>::default();
 
-            fn run_test(a: felt252, b: felt252, c: felt252) -> (felt252, felt252, felt252) {
-                hades_permutation(a, b, c)
-            }
-        );
+            generator.build(&[])
+        };
 
-        run_program_assert_output(
+        let result = run_sierra_program(
             &program,
-            "run_test",
             &[
                 Felt::from(2).into(),
                 Felt::from(4).into(),
                 Felt::from(4).into(),
             ],
+        )
+        .return_value;
+
+        assert_eq!(
             jit_struct!(
                 Felt::from_dec_str(
                     "1627044480024625333712068603977073585655327747658231320998869768849911913066"
@@ -150,6 +155,7 @@ mod test {
                 .unwrap()
                 .into(),
             ),
+            result
         );
     }
 }

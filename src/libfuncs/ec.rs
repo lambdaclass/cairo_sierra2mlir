@@ -493,98 +493,81 @@ pub fn build_zero<'ctx, 'this>(
 #[cfg(test)]
 mod test {
     use crate::{
-        utils::test::{jit_enum, jit_struct, load_cairo, run_program, run_program_assert_output},
+        utils::{
+            sierra_gen::SierraGenerator,
+            test::{jit_enum, jit_struct, run_sierra_program},
+        },
         values::Value,
     };
-    use cairo_lang_sierra::program::Program;
+    use cairo_lang_sierra::{
+        extensions::ec::{
+            EcCreatePointLibfunc, EcIsZeroLibfunc, EcNegLibfunc, EcPointFromXLibfunc,
+            EcStateAddLibfunc, EcStateAddMulLibfunc, EcStateFinalizeLibfunc, EcStateInitLibfunc,
+            EcUnwrapPointLibfunc, EcZeroLibfunc,
+        },
+        program::Program,
+    };
     use lazy_static::lazy_static;
     use starknet_types_core::felt::Felt;
     use std::ops::Neg;
 
     lazy_static! {
-        static ref EC_POINT_IS_ZERO: (String, Program) = load_cairo! {
-            use core::{ec::{ec_point_is_zero, EcPoint}, zeroable::IsZeroResult};
+        static ref EC_POINT_IS_ZERO: Program = {
+            let generator = SierraGenerator::<EcIsZeroLibfunc>::default();
 
-            fn run_test(point: EcPoint) -> IsZeroResult<EcPoint> {
-                ec_point_is_zero(point)
-            }
+            generator.build(&[])
         };
-        static ref EC_NEG: (String, Program) = load_cairo! {
-            use core::ec::{ec_neg, EcPoint};
+        static ref EC_NEG: Program = {
+            let generator = SierraGenerator::<EcNegLibfunc>::default();
 
-            fn run_test(point: EcPoint) -> EcPoint {
-                ec_neg(point)
-            }
+            generator.build(&[])
         };
-        static ref EC_POINT_FROM_X_NZ: (String, Program) = load_cairo! {
-            use core::ec::{ec_point_from_x_nz, EcPoint};
-            use core::zeroable::NonZero;
+        static ref EC_POINT_FROM_X_NZ: Program = {
+            let generator = SierraGenerator::<EcPointFromXLibfunc>::default();
 
-            fn run_test(x: felt252) -> Option<NonZero<EcPoint>> {
-                ec_point_from_x_nz(x)
-            }
+            generator.build(&[])
         };
-        static ref EC_STATE_ADD: (String, Program) = load_cairo! {
-            use core::ec::{ec_state_add, EcPoint, EcState};
-            use core::zeroable::NonZero;
+        static ref EC_STATE_ADD: Program = {
+            let generator = SierraGenerator::<EcStateAddLibfunc>::default();
 
-            fn run_test(mut state: EcState, point: NonZero<EcPoint>) -> EcState {
-                ec_state_add(ref state, point);
-                state
-            }
+            generator.build(&[])
         };
-        static ref EC_STATE_ADD_MUL: (String, Program) = load_cairo! {
-            use core::ec::{ec_state_add_mul, EcPoint, EcState};
-            use core::zeroable::NonZero;
+        static ref EC_STATE_ADD_MUL: Program = {
+            let generator = SierraGenerator::<EcStateAddMulLibfunc>::default();
 
-            fn run_test(mut state: EcState, scalar: felt252, point: NonZero<EcPoint>) -> EcState {
-                ec_state_add_mul(ref state, scalar, point);
-                state
-            }
+            generator.build(&[])
         };
-        static ref EC_STATE_FINALIZE: (String, Program) = load_cairo! {
-            use core::ec::{ec_state_try_finalize_nz, EcPoint, EcState};
-            use core::zeroable::NonZero;
+        static ref EC_STATE_FINALIZE: Program = {
+            let generator = SierraGenerator::<EcStateFinalizeLibfunc>::default();
 
-            fn run_test(state: EcState) -> Option<NonZero<EcPoint>> {
-                ec_state_try_finalize_nz(state)
-            }
+            generator.build(&[])
         };
-        static ref EC_STATE_INIT: (String, Program) = load_cairo! {
-            use core::ec::{ec_state_init, EcState};
+        static ref EC_STATE_INIT: Program = {
+            let generator = SierraGenerator::<EcStateInitLibfunc>::default();
 
-            fn run_test() -> EcState {
-                ec_state_init()
-            }
+            generator.build(&[])
         };
-        static ref EC_POINT_TRY_NEW_NZ: (String, Program) = load_cairo! {
-            use core::ec::{ec_point_try_new_nz, EcPoint};
-            use core::zeroable::NonZero;
+        static ref EC_POINT_TRY_NEW_NZ: Program = {
+            let generator = SierraGenerator::<EcCreatePointLibfunc>::default();
 
-            fn run_test(x: felt252, y: felt252) -> Option<NonZero<EcPoint>> {
-                ec_point_try_new_nz(x, y)
-            }
+            generator.build(&[])
         };
-        static ref EC_POINT_UNWRAP: (String, Program) = load_cairo! {
-            use core::{ec::{ec_point_unwrap, EcPoint}, zeroable::NonZero};
+        static ref EC_POINT_UNWRAP: Program = {
+            let generator = SierraGenerator::<EcUnwrapPointLibfunc>::default();
 
-            fn run_test(point: NonZero<EcPoint>) -> (felt252, felt252) {
-                ec_point_unwrap(point)
-            }
+            generator.build(&[])
         };
-        static ref EC_POINT_ZERO: (String, Program) = load_cairo! {
-            use core::ec::{ec_point_zero, EcPoint};
+        static ref EC_POINT_ZERO: Program = {
+            let generator = SierraGenerator::<EcZeroLibfunc>::default();
 
-            fn run_test() -> EcPoint {
-                ec_point_zero()
-            }
+            generator.build(&[])
         };
     }
 
     #[test]
     fn ec_point_is_zero() {
-        let r =
-            |x, y| run_program(&EC_POINT_IS_ZERO, "run_test", &[Value::EcPoint(x, y)]).return_value;
+        println!("{}", EC_POINT_IS_ZERO.clone());
+        let r = |x, y| run_sierra_program(&EC_POINT_IS_ZERO, &[Value::EcPoint(x, y)]).return_value;
 
         assert_eq!(r(0.into(), 0.into()), jit_enum!(0, jit_struct!()));
         assert_eq!(
@@ -600,7 +583,7 @@ mod test {
 
     #[test]
     fn ec_neg() {
-        let r = |x, y| run_program(&EC_NEG, "run_test", &[Value::EcPoint(x, y)]).return_value;
+        let r = |x, y| run_sierra_program(&EC_NEG, &[Value::EcPoint(x, y)]).return_value;
 
         assert_eq!(r(0.into(), 0.into()), Value::EcPoint(0.into(), 0.into()));
         assert_eq!(
@@ -616,7 +599,7 @@ mod test {
 
     #[test]
     fn ec_point_from_x() {
-        let r = |x| run_program(&EC_POINT_FROM_X_NZ, "run_test", &[Value::Felt252(x)]).return_value;
+        let r = |x| run_sierra_program(&EC_POINT_FROM_X_NZ, &[Value::Felt252(x)]).return_value;
 
         assert_eq!(r(0.into()), jit_enum!(1, jit_struct!()));
         assert_eq!(r(1234.into()), jit_enum!(0, Value::EcPoint(
@@ -627,7 +610,7 @@ mod test {
 
     #[test]
     fn ec_state_add() {
-        run_program_assert_output(&EC_STATE_ADD, "run_test", &[
+        let result = run_sierra_program(&EC_STATE_ADD, &[
             Value::EcState(
                 Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
                 Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap(),
@@ -638,18 +621,34 @@ mod test {
                 Felt::from_dec_str("1234").unwrap(),
                 Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
             )
-        ],
-        Value::EcState(
-            Felt::from_dec_str("763975897824944497806946001227010133599886598340174017198031710397718335159").unwrap(),
-            Felt::from_dec_str("2805180267536471620369715068237762638204710971142209985448115065526708105983").unwrap(),
-            Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-            Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
-        ));
+        ]).return_value;
+
+        assert_eq!(
+            Value::EcState(
+                Felt::from_dec_str(
+                    "763975897824944497806946001227010133599886598340174017198031710397718335159"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2805180267536471620369715068237762638204710971142209985448115065526708105983"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "3151312365169595090315724863753927489909436624354740709748557281394568342450"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2835232394579952276045648147338966184268723952674536708929458753792035266179"
+                )
+                .unwrap()
+            ),
+            result
+        );
     }
 
     #[test]
     fn ec_state_add_mul() {
-        run_program_assert_output(&EC_STATE_ADD_MUL, "run_test", &[
+        let result = run_sierra_program(&EC_STATE_ADD_MUL, &[
             Value::EcState(
                 Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
                 Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap(),
@@ -661,16 +660,31 @@ mod test {
                 Felt::from_dec_str("1234").unwrap(),
                 Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
             )
-        ],
+        ]).return_value;
+
+        assert_eq!(
             Value::EcState(
-                Felt::from_dec_str("763975897824944497806946001227010133599886598340174017198031710397718335159").unwrap(),
-                Felt::from_dec_str("2805180267536471620369715068237762638204710971142209985448115065526708105983").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
-            )
+                Felt::from_dec_str(
+                    "763975897824944497806946001227010133599886598340174017198031710397718335159"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2805180267536471620369715068237762638204710971142209985448115065526708105983"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "3151312365169595090315724863753927489909436624354740709748557281394568342450"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2835232394579952276045648147338966184268723952674536708929458753792035266179"
+                )
+                .unwrap()
+            ),
+            result
         );
 
-        run_program_assert_output(&EC_STATE_ADD_MUL, "run_test", &[
+        let result = run_sierra_program(&EC_STATE_ADD_MUL, &[
             Value::EcState(
                 Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
                 Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap(),
@@ -682,21 +696,36 @@ mod test {
                 Felt::from_dec_str("1234").unwrap(),
                 Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
             )
-        ],
+        ]
+        ).return_value;
+
+        assert_eq!(
             Value::EcState(
-                Felt::from_dec_str("3016674370847061744386893405108272070153695046160622325692702034987910716850").unwrap(),
-                Felt::from_dec_str("898133181809473419542838028331350248951548889944002871647069130998202992502").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
-            )
-        );
+                Felt::from_dec_str(
+                    "3016674370847061744386893405108272070153695046160622325692702034987910716850"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "898133181809473419542838028331350248951548889944002871647069130998202992502"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "3151312365169595090315724863753927489909436624354740709748557281394568342450"
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2835232394579952276045648147338966184268723952674536708929458753792035266179"
+                )
+                .unwrap()
+            ),
+            result
+        )
     }
 
     #[test]
     fn ec_state_finalize() {
-        run_program_assert_output(
+        let result = run_sierra_program(
             &EC_STATE_FINALIZE,
-            "run_test",
             &[Value::EcState(
                 Felt::from_dec_str(
                     "3151312365169595090315724863753927489909436624354740709748557281394568342450",
@@ -715,67 +744,97 @@ mod test {
                 )
                 .unwrap(),
             )],
-            jit_enum!(1, jit_struct!()),
-        );
-        run_program_assert_output(&EC_STATE_FINALIZE, "run_test", &[
-            Value::EcState(
-                Felt::from_dec_str("763975897824944497806946001227010133599886598340174017198031710397718335159").unwrap(),
-                Felt::from_dec_str("2805180267536471620369715068237762638204710971142209985448115065526708105983").unwrap(),
-                Felt::from_dec_str("3151312365169595090315724863753927489909436624354740709748557281394568342450").unwrap(),
-                Felt::from_dec_str("2835232394579952276045648147338966184268723952674536708929458753792035266179").unwrap()
-            ),
-        ],
-            jit_enum!(0, Value::EcPoint(
-                    Felt::from(1234),
-                    Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
+        )
+        .return_value;
+
+        assert_eq!(jit_enum!(1, jit_struct!()), result);
+
+        let result = run_sierra_program(
+            &EC_STATE_FINALIZE,
+            &[Value::EcState(
+                Felt::from_dec_str(
+                    "763975897824944497806946001227010133599886598340174017198031710397718335159",
                 )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2805180267536471620369715068237762638204710971142209985448115065526708105983",
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "3151312365169595090315724863753927489909436624354740709748557281394568342450",
+                )
+                .unwrap(),
+                Felt::from_dec_str(
+                    "2835232394579952276045648147338966184268723952674536708929458753792035266179",
+                )
+                .unwrap(),
+            )],
+        )
+        .return_value;
+
+        assert_eq!( jit_enum!(0, Value::EcPoint(
+                Felt::from(1234),
+                Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
             )
-        );
+        ), result);
     }
 
     #[test]
     fn ec_state_init() {
-        let result = run_program(&EC_STATE_INIT, "run_test", &[]);
+        let result = run_sierra_program(&EC_STATE_INIT, &[]);
         // cant match the values because the state init is a random point
         assert!(matches!(result.return_value, Value::EcState(_, _, _, _)));
     }
 
     #[test]
     fn ec_point_try_new_nz() {
-        run_program_assert_output(
+        let result = run_sierra_program(
             &EC_POINT_TRY_NEW_NZ,
-            "run_test",
             &[
                 Felt::from_dec_str("0").unwrap().into(),
                 Felt::from_dec_str("0").unwrap().into(),
             ],
-            jit_enum!(1, jit_struct!()),
-        );
-        run_program_assert_output(
+        )
+        .return_value;
+
+        assert_eq!(jit_enum!(1, jit_struct!()), result);
+
+        let result = run_sierra_program(
             &EC_POINT_TRY_NEW_NZ,
-            "run_test",
             &[
                 Felt::from_dec_str("1234").unwrap().into(),
-                Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap().into()
+                Felt::from_dec_str(
+                    "1301976514684871091717790968549291947487646995000837413367950573852273027507",
+                )
+                .unwrap()
+                .into(),
             ],
-                jit_enum!(0, Value::EcPoint(
-                    Felt::from_dec_str("1234").unwrap(),
-                    Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
-                ))
-            ,
-        );
-        run_program_assert_output(
+        )
+        .return_value;
+
+        assert_eq!(jit_enum!(0, Value::EcPoint(
+            Felt::from_dec_str("1234").unwrap(),
+            Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap()
+        )), result);
+
+        let result = run_sierra_program(
             &EC_POINT_TRY_NEW_NZ,
-            "run_test",
-            &[  Felt::from_dec_str("1234").unwrap().into(),
-                Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap().neg().into()
-                ],
-                jit_enum!(0, Value::EcPoint(
-                    Felt::from_dec_str("1234").unwrap(),
-                    Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap().neg()
-                ))
-                ,
-        );
+            &[
+                Felt::from_dec_str("1234").unwrap().into(),
+                Felt::from_dec_str(
+                    "1301976514684871091717790968549291947487646995000837413367950573852273027507",
+                )
+                .unwrap()
+                .neg()
+                .into(),
+            ],
+        )
+        .return_value;
+
+        assert_eq!(jit_enum!(0, Value::EcPoint(
+            Felt::from_dec_str("1234").unwrap(),
+            Felt::from_dec_str("1301976514684871091717790968549291947487646995000837413367950573852273027507").unwrap().neg()
+        )), result);
     }
 
     #[test]
@@ -790,12 +849,11 @@ mod test {
 
         #[track_caller]
         fn run(a: &str, b: &str, ea: &str, eb: &str) {
-            run_program_assert_output(
-                &EC_POINT_UNWRAP,
-                "run_test",
-                &[Value::EcPoint(parse(a), parse(b))],
-                jit_struct!(parse(ea).into(), parse(eb).into()),
-            );
+            let result =
+                run_sierra_program(&EC_POINT_UNWRAP, &[Value::EcPoint(parse(a), parse(b))])
+                    .return_value;
+
+            assert_eq!(jit_struct!(parse(ea).into(), parse(eb).into()), result)
         }
 
         run("0", "0", "0", "0");
@@ -811,14 +869,14 @@ mod test {
 
     #[test]
     fn ec_point_zero() {
-        run_program_assert_output(
-            &EC_POINT_ZERO,
-            "run_test",
-            &[],
+        let result = run_sierra_program(&EC_POINT_ZERO, &[]).return_value;
+
+        assert_eq!(
             Value::EcPoint(
                 Felt::from_dec_str("0").unwrap(),
                 Felt::from_dec_str("0").unwrap().neg(),
             ),
+            result
         );
     }
 }

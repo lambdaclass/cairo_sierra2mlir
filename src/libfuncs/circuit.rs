@@ -1085,7 +1085,6 @@ fn build_array_slice<'ctx>(
 
 #[cfg(test)]
 mod test {
-
     use crate::{
         utils::{
             felt252_str,

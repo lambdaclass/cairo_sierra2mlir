@@ -817,134 +817,119 @@ fn build_wrap_non_zero<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
+    use cairo_lang_sierra::{
+        extensions::{
+            bounded_int::BoundedIntTrimLibfunc,
+            int::{
+                signed::{Sint16Type, Sint8Type},
+                unsigned::Uint32Type,
+            },
+        },
+        program::GenericArg,
+    };
     use cairo_vm::Felt252;
 
     use crate::{
-        context::NativeContext, execution_result::ExecutionResult, executor::JitNativeExecutor,
-        utils::test::load_cairo, OptLevel, Value,
+        utils::{
+            sierra_gen::SierraGenerator,
+            test::{jit_struct, run_sierra_program},
+        },
+        Value,
     };
 
     #[test]
     fn test_trim_some_pos_i8() {
-        let (_, program) = load_cairo!(
-            use core::internal::{OptionRev, bounded_int::BoundedInt};
-            use core::internal::bounded_int;
-            fn main() -> BoundedInt<-128, 126> {
-                let num = match bounded_int::trim_max::<i8>(1) {
-                    OptionRev::Some(n) => n,
-                    OptionRev::None => 0,
-                };
+        let program_trim = {
+            let mut generator = SierraGenerator::<BoundedIntTrimLibfunc<true>>::default();
+            let i8_ty = generator.push_type_declaration::<Sint8Type>(&[]).clone();
 
-                num
-            }
-        );
-        let ctx = NativeContext::new();
-        let module = ctx.compile(&program, false, None).unwrap();
-        let executor = JitNativeExecutor::from_native_module(module, OptLevel::Default).unwrap();
-        let ExecutionResult {
-            remaining_gas: _,
-            return_value,
-            builtin_stats: _,
-        } = executor
-            .invoke_dynamic(&program.funcs[0].id, &[], None)
-            .unwrap();
+            generator.build(&[GenericArg::Type(i8_ty)])
+        };
+        println!("{program_trim}");
+        let Value::Enum {
+            tag: 1,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_trim, &[Value::Sint8(1)]).return_value
+        else {
+            panic!("should be OptionRev::Some");
+        };
 
-        let Value::BoundedInt { value, range: _ } = return_value else {
+        let Value::BoundedInt { value, range: _ } = *value else {
             panic!();
         };
+
         assert_eq!(value, Felt252::from(1_u8));
     }
 
     #[test]
     fn test_trim_some_neg_i8() {
-        let (_, program) = load_cairo!(
-            use core::internal::{OptionRev, bounded_int::BoundedInt};
-            use core::internal::bounded_int;
-            fn main() -> BoundedInt<-127, 127> {
-                let num = match bounded_int::trim_min::<i8>(1) {
-                    OptionRev::Some(n) => n,
-                    OptionRev::None => 1,
-                };
+        let program_trim = {
+            let mut generator = SierraGenerator::<BoundedIntTrimLibfunc<true>>::default();
+            let i8_ty = generator.push_type_declaration::<Sint8Type>(&[]).clone();
 
-                num
-            }
-        );
-        let ctx = NativeContext::new();
-        let module = ctx.compile(&program, false, None).unwrap();
-        let executor = JitNativeExecutor::from_native_module(module, OptLevel::Default).unwrap();
-        let ExecutionResult {
-            remaining_gas: _,
-            return_value,
-            builtin_stats: _,
-        } = executor
-            .invoke_dynamic(&program.funcs[0].id, &[], None)
-            .unwrap();
+            generator.build(&[GenericArg::Type(i8_ty)])
+        };
+        println!("{program_trim}");
+        let Value::Enum {
+            tag: 1,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_trim, &[Value::Sint8(-1)]).return_value
+        else {
+            panic!("should be OptionRev::Some");
+        };
 
-        let Value::BoundedInt { value, range: _ } = return_value else {
+        let Value::BoundedInt { value, range: _ } = *value else {
             panic!();
         };
-        assert_eq!(value, Felt252::from(1_u8));
+
+        assert_eq!(value, Felt252::from(-1_i8));
     }
 
     #[test]
     fn test_trim_some_u32() {
-        let (_, program) = load_cairo!(
-            use core::internal::{OptionRev, bounded_int::BoundedInt};
-            use core::internal::bounded_int;
-            fn main() -> BoundedInt<0, 4294967294> {
-                let num = match bounded_int::trim_max::<u32>(0xfffffffe) {
-                    OptionRev::Some(n) => n,
-                    OptionRev::None => 0,
-                };
+        let program_trim = {
+            let mut generator = SierraGenerator::<BoundedIntTrimLibfunc<true>>::default();
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
 
-                num
-            }
-        );
-        let ctx = NativeContext::new();
-        let module = ctx.compile(&program, false, None).unwrap();
-        let executor = JitNativeExecutor::from_native_module(module, OptLevel::Default).unwrap();
-        let ExecutionResult {
-            remaining_gas: _,
-            return_value,
-            builtin_stats: _,
-        } = executor
-            .invoke_dynamic(&program.funcs[0].id, &[], None)
-            .unwrap();
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+        println!("{program_trim}");
+        let Value::Enum {
+            tag: 1,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_trim, &[Value::Uint32(0xfffffffe)]).return_value
+        else {
+            panic!("should be OptionRev::Some");
+        };
 
-        let Value::BoundedInt { value, range: _ } = return_value else {
+        let Value::BoundedInt { value, range: _ } = *value else {
             panic!();
         };
+
         assert_eq!(value, Felt252::from(0xfffffffe_u32));
     }
 
     #[test]
     fn test_trim_none() {
-        let (_, program) = load_cairo!(
-            use core::internal::{OptionRev, bounded_int::BoundedInt};
-            use core::internal::bounded_int;
-            fn main() -> BoundedInt<-32767, 32767> {
-                let num = match bounded_int::trim_min::<i16>(-0x8000) {
-                    OptionRev::Some(n) => n,
-                    OptionRev::None => 0,
-                };
+        let program_trim = {
+            let mut generator = SierraGenerator::<BoundedIntTrimLibfunc<false>>::default();
+            let i16_ty = generator.push_type_declaration::<Sint16Type>(&[]).clone();
 
-                num
-            }
-        );
-        let ctx = NativeContext::new();
-        let module = ctx.compile(&program, false, None).unwrap();
-        let executor = JitNativeExecutor::from_native_module(module, OptLevel::Default).unwrap();
-        let ExecutionResult {
-            remaining_gas: _,
-            return_value,
-            builtin_stats: _,
-        } = executor
-            .invoke_dynamic(&program.funcs[0].id, &[], None)
-            .unwrap();
-
-        let Value::BoundedInt { value, range: _ } = return_value else {
-            panic!();
+            generator.build(&[GenericArg::Type(i16_ty)])
         };
-        assert_eq!(value, Felt252::from(0));
+        println!("{program_trim}");
+        let Value::Enum {
+            tag: 0,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_trim, &[Value::Sint16(-0x8000)]).return_value
+        else {
+            panic!("should be OptionRev::Some");
+        };
+
+        assert_eq!(*value, jit_struct!());
     }
 }

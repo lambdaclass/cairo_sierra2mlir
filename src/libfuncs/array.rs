@@ -1305,10 +1305,26 @@ fn is_shared<'ctx, 'this>(
 mod test {
     use crate::{
         utils::{
-            felt252_str,
-            test::{jit_enum, jit_panic, jit_struct, load_cairo, run_program},
+            sierra_gen::SierraGenerator,
+            test::{jit_enum, jit_struct, load_cairo, run_program, run_sierra_program},
         },
         values::Value,
+    };
+    use cairo_lang_sierra::{
+        extensions::{
+            array::{
+                ArrayAppendLibfunc, ArrayGetLibfunc, ArrayLenLibfunc, ArrayNewLibfunc,
+                ArrayPopFrontConsumeLibfunc, ArrayPopFrontLibfunc, ArraySliceLibfunc,
+                ArraySnapshotMultiPopBackLibfunc, ArraySnapshotMultiPopFrontLibfunc,
+                ArraySnapshotPopBackLibfunc, ArrayType,
+            },
+            felt252::Felt252Type,
+            int::unsigned::Uint32Type,
+            snapshot::SnapshotTakeLibfunc,
+            structure::StructType,
+        },
+        ids::UserTypeId,
+        program::GenericArg,
     };
     use pretty_assertions_sorted::assert_eq;
     use starknet_types_core::felt::Felt;
@@ -1329,321 +1345,390 @@ mod test {
 
     #[test]
     fn run_append() {
-        let program = load_cairo! {
-            use array::ArrayTrait;
+        let program_new = {
+            let mut generator = SierraGenerator::<ArrayNewLibfunc>::default();
 
-            fn run_test() -> Array<u32> {
-                let mut numbers = ArrayTrait::new();
-                numbers.append(4_u32);
-                numbers
-            }
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
         };
-        let result = run_program(&program, "run_test", &[]).return_value;
+        let program_append = {
+            let mut generator = SierraGenerator::<ArrayAppendLibfunc>::default();
+
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let result = run_sierra_program(&program_new, &[]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(4)]).return_value;
 
         assert_eq!(result, [4u32].into());
     }
 
     #[test]
     fn run_len() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_append = {
+            let mut generator = SierraGenerator::<ArrayAppendLibfunc>::default();
 
-            fn run_test() -> u32 {
-                let mut numbers = ArrayTrait::new();
-                numbers.append(4_u32);
-                numbers.append(3_u32);
-                numbers.append(2_u32);
-                numbers.len()
-            }
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+        let program_len = {
+            let mut generator = SierraGenerator::<ArrayLenLibfunc>::default();
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let result = run_sierra_program(&program_append, &[Value::Array(vec![]), Value::Uint32(4)])
+            .return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(3)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_len, &[result]).return_value;
 
         assert_eq!(result, 3u32.into());
     }
 
     #[test]
     fn run_get() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_append = {
+            let mut generator = SierraGenerator::<ArrayAppendLibfunc>::default();
 
-            fn run_test() -> (u32, u32, u32, u32) {
-                let mut numbers = ArrayTrait::new();
-                numbers.append(4_u32);
-                numbers.append(3_u32);
-                numbers.append(2_u32);
-                numbers.append(1_u32);
-                (
-                    *numbers.at(0),
-                    *numbers.at(1),
-                    *numbers.at(2),
-                    *numbers.at(3),
-                )
-            }
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
 
-        assert_eq!(
-            result,
-            jit_enum!(
-                0,
-                jit_struct!(jit_struct!(
-                    4u32.into(),
-                    3u32.into(),
-                    2u32.into(),
-                    1u32.into()
-                ))
-            )
-        );
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+        let program_get = {
+            let mut generator = SierraGenerator::<ArrayGetLibfunc>::default();
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let result = run_sierra_program(&program_append, &[Value::Array(vec![]), Value::Uint32(4)])
+            .return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(3)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let final_array =
+            run_sierra_program(&program_append, &[result, Value::Uint32(1)]).return_value;
+
+        let result =
+            run_sierra_program(&program_get, &[final_array.clone(), Value::Uint32(0)]).return_value;
+        assert_eq!(result, jit_enum!(0, 4u32.into()));
+        let result =
+            run_sierra_program(&program_get, &[final_array.clone(), Value::Uint32(1)]).return_value;
+        assert_eq!(result, jit_enum!(0, 3u32.into()));
+        let result =
+            run_sierra_program(&program_get, &[final_array.clone(), Value::Uint32(2)]).return_value;
+        assert_eq!(result, jit_enum!(0, 2u32.into()));
+        let result =
+            run_sierra_program(&program_get, &[final_array, Value::Uint32(3)]).return_value;
+        assert_eq!(result, jit_enum!(0, 1u32.into()));
     }
 
     #[test]
     fn run_get_big() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_append = {
+            let mut generator = SierraGenerator::<ArrayAppendLibfunc>::default();
 
-            fn run_test() -> (u32, u32, u32, u32) {
-                let mut numbers = ArrayTrait::new();
-                numbers.append(4_u32);
-                numbers.append(3_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(2_u32);
-                numbers.append(17_u32);
-                numbers.append(17_u32);
-                numbers.append(18_u32);
-                numbers.append(19_u32);
-                numbers.append(20_u32);
-                numbers.append(21_u32);
-                numbers.append(22_u32);
-                numbers.append(23_u32);
-                (
-                    *numbers.at(20),
-                    *numbers.at(21),
-                    *numbers.at(22),
-                    *numbers.at(23),
-                )
-            }
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
 
-        assert_eq!(
-            result,
-            jit_enum!(
-                0,
-                jit_struct!(jit_struct!(
-                    20u32.into(),
-                    21u32.into(),
-                    22u32.into(),
-                    23u32.into()
-                ))
-            )
-        );
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+        let program_get = {
+            let mut generator = SierraGenerator::<ArrayGetLibfunc>::default();
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let result = run_sierra_program(&program_append, &[Value::Array(vec![]), Value::Uint32(4)])
+            .return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(3)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(17)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(17)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(18)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(19)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(20)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(21)]).return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(22)]).return_value;
+        let final_array =
+            run_sierra_program(&program_append, &[result, Value::Uint32(23)]).return_value;
+
+        let result = run_sierra_program(&program_get, &[final_array.clone(), Value::Uint32(20)])
+            .return_value;
+        assert_eq!(result, jit_enum!(0, 20u32.into()));
+        let result = run_sierra_program(&program_get, &[final_array.clone(), Value::Uint32(21)])
+            .return_value;
+        assert_eq!(result, jit_enum!(0, 21u32.into()));
+        let result = run_sierra_program(&program_get, &[final_array.clone(), Value::Uint32(22)])
+            .return_value;
+        assert_eq!(result, jit_enum!(0, 22u32.into()));
+        let result =
+            run_sierra_program(&program_get, &[final_array, Value::Uint32(23)]).return_value;
+        assert_eq!(result, jit_enum!(0, 23u32.into()));
     }
 
     #[test]
     fn run_pop_front() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_pop = {
+            let mut generator = SierraGenerator::<ArrayPopFrontLibfunc>::default();
 
-            fn run_test() -> u32 {
-                let mut numbers = ArrayTrait::new();
-                numbers.append(4_u32);
-                numbers.append(3_u32);
-                let _ = numbers.pop_front();
-                numbers.append(1_u32);
-                *numbers.at(0)
-            }
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
 
-        assert_eq!(result, jit_enum!(0, jit_struct!(3u32.into())));
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+        let program_append = {
+            let mut generator = SierraGenerator::<ArrayAppendLibfunc>::default();
+
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+        let program_get = {
+            let mut generator = SierraGenerator::<ArrayGetLibfunc>::default();
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let array = [4, 3].into();
+        // pop_front -> enum( struct( [array, poped_value] ) )
+        let Value::Enum {
+            tag: _,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_pop, &[array]).return_value
+        else {
+            panic!("pop_front should return an enum");
+        };
+        // pop_front success path returns an struct the a vector: [rem_array, popped_value]
+        let Value::Struct {
+            fields,
+            debug_name: _,
+        } = *value
+        else {
+            panic!("enum should contain an struct");
+        };
+        let result = run_sierra_program(&program_append, &[fields[0].clone(), Value::Uint32(1)])
+            .return_value;
+        let result = run_sierra_program(&program_get, &[result, Value::Uint32(0)]).return_value;
+
+        assert_eq!(result, jit_enum!(0, 3u32.into()));
     }
 
     #[test]
     fn run_pop_front_result() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_pop = {
+            let mut generator = SierraGenerator::<ArrayPopFrontLibfunc>::default();
 
-            fn run_test() -> Option<u32> {
-                let mut numbers = ArrayTrait::new();
-                numbers.append(4_u32);
-                numbers.append(3_u32);
-                numbers.pop_front()
-            }
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let array = [4, 3].into();
+        let result = run_sierra_program(&program_pop, &[array]).return_value;
+
+        assert_eq!(
+            result,
+            jit_enum!(0, jit_struct!([3u32].into(), 4u32.into()))
         );
-        let result = run_program(&program, "run_test", &[]).return_value;
 
-        assert_eq!(result, jit_enum!(0, 4u32.into()));
+        let result = run_sierra_program(&program_pop, &[Value::Array(vec![])]).return_value;
 
-        let program = load_cairo!(
-            use array::ArrayTrait;
-
-            fn run_test() -> Option<u32> {
-                let mut numbers = ArrayTrait::new();
-                numbers.pop_front()
-            }
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
-
-        assert_eq!(result, jit_enum!(1, jit_struct!()));
+        assert_eq!(result, jit_enum!(1, Value::Array(vec![])));
     }
 
     #[test]
     fn run_pop_front_consume() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_pop = {
+            let mut generator = SierraGenerator::<ArrayPopFrontConsumeLibfunc>::default();
 
-            fn run_test() -> u32 {
-                let mut numbers = ArrayTrait::new();
-                numbers.append(4_u32);
-                numbers.append(3_u32);
-                match numbers.pop_front_consume() {
-                    Option::Some((_, x)) => x,
-                    Option::None(()) => 0_u32,
-                }
-            }
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let array = [4u32, 3u32].into();
+
+        let result = run_sierra_program(&program_pop, &[array]).return_value;
+
+        assert_eq!(
+            result,
+            jit_enum!(0, jit_struct!([3u32].into(), 4u32.into()))
         );
-        let result = run_program(&program, "run_test", &[]).return_value;
-
-        assert_eq!(result, 4u32.into());
     }
 
     #[test]
     fn run_pop_back() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_pop = {
+            let mut generator = SierraGenerator::<ArraySnapshotPopBackLibfunc>::default();
 
-            fn run_test() -> (Option<@u32>, Option<@u32>, Option<@u32>, Option<@u32>) {
-                let mut numbers = ArrayTrait::new();
-                numbers.append(4_u32);
-                numbers.append(3_u32);
-                numbers.append(1_u32);
-                let mut numbers = numbers.span();
-                (
-                    numbers.pop_back(),
-                    numbers.pop_back(),
-                    numbers.pop_back(),
-                    numbers.pop_back(),
-                )
-            }
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
 
-        assert_eq!(
-            result,
-            jit_struct!(
-                jit_enum!(0, 1u32.into()),
-                jit_enum!(0, 3u32.into()),
-                jit_enum!(0, 4u32.into()),
-                jit_enum!(
-                    1,
-                    Value::Struct {
-                        fields: Vec::new(),
-                        debug_name: None,
-                    }
-                ),
-            ),
-        );
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let array = [4u32, 3u32, 1u32].into();
+        let Value::Enum {
+            tag: _,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_pop, &[array]).return_value
+        else {
+            panic!("pop_front should return an enum");
+        };
+        let Value::Struct {
+            fields,
+            debug_name: _,
+        } = *value
+        else {
+            panic!("enum should contain an struct");
+        };
+        assert_eq!(fields[1], 1u32.into());
+        let Value::Enum {
+            tag: _,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_pop, &[fields[0].clone()]).return_value
+        else {
+            panic!("pop_front should return an enum");
+        };
+        // pop_front success path returns an struct the a vector: [rem_array, popped_value]
+        let Value::Struct {
+            fields,
+            debug_name: _,
+        } = *value
+        else {
+            panic!("enum should contain an struct");
+        };
+        assert_eq!(fields[1], 3u32.into());
+        let Value::Enum {
+            tag: _,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_pop, &[fields[0].clone()]).return_value
+        else {
+            panic!("pop_front should return an enum");
+        };
+        let Value::Struct {
+            fields,
+            debug_name: _,
+        } = *value
+        else {
+            panic!("enum should contain an struct");
+        };
+        assert_eq!(fields[1], 4u32.into());
+        let Value::Enum {
+            tag: _,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_pop, &[fields[0].clone()]).return_value
+        else {
+            panic!("pop_front should return an enum");
+        };
+        assert_eq!(*value, Value::Array(vec![]));
     }
 
     #[test]
     fn run_slice() {
-        let program = load_cairo!(
-            use array::Array;
-            use array::ArrayTrait;
-            use array::SpanTrait;
-            use option::OptionTrait;
-            use box::BoxTrait;
+        let program_get = {
+            let mut generator = SierraGenerator::<ArrayGetLibfunc>::default();
 
-            fn run_test() -> u32 {
-                let mut data: Array<u32> = ArrayTrait::new(); // Alloca (freed).
-                data.append(1_u32);
-                data.append(2_u32);
-                data.append(3_u32);
-                data.append(4_u32);
-                let sp = data.span(); // Alloca (leaked).
-                let slice = sp.slice(1, 2);
-                data.append(5_u32);
-                data.append(5_u32);
-                data.append(5_u32);
-                data.append(5_u32);
-                data.append(5_u32); // Realloc (freed).
-                data.append(5_u32);
-                *slice.get(1).unwrap().unbox()
-            }
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
 
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+        let program_slice = {
+            let mut generator = SierraGenerator::<ArraySliceLibfunc>::default();
 
-        assert_eq!(result, jit_enum!(0, jit_struct!(3u32.into())));
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let array = [4, 3, 1].into();
+
+        let Value::Enum {
+            tag: _,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_slice, &[array, Value::Uint32(1), Value::Uint32(2)])
+            .return_value
+        else {
+            panic!("enum should contain an array")
+        };
+        let result = run_sierra_program(&program_get, &[*value, Value::Uint32(0)]).return_value;
+
+        assert_eq!(result, jit_enum!(0, 3u32.into()));
     }
 
     #[test]
     fn run_slice_fail() {
-        let program = load_cairo!(
-            use array::Array;
-            use array::ArrayTrait;
-            use array::SpanTrait;
-            use option::OptionTrait;
-            use box::BoxTrait;
+        let program_slice = {
+            let mut generator = SierraGenerator::<ArraySliceLibfunc>::default();
 
-            fn run_test() -> u32 {
-                let mut data: Array<u32> = ArrayTrait::new();
-                data.append(1_u32);
-                data.append(2_u32);
-                data.append(3_u32);
-                data.append(4_u32);
-                let sp = data.span();
-                let slice = sp.slice(1, 4); // oob
-                //data.append(5_u32);
-                *slice.get(0).unwrap().unbox()
-            }
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
 
-        assert_eq!(
-            result,
-            jit_panic!(felt252_str(
-                "1637570914057682275393755530660268060279989363"
-            ))
-        );
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let array = [1, 2, 3, 4].into();
+
+        let Value::Enum {
+            tag: _,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_slice, &[array, Value::Uint32(1), Value::Uint32(4)])
+            .return_value
+        else {
+            panic!("enum should contain an array")
+        };
+
+        assert_eq!(*value, jit_struct!());
     }
 
     #[test]
     fn run_slice_empty_array() {
-        let program = load_cairo!(
-            fn run_test() -> Span<felt252> {
-                let x: Span<felt252> = array![].span();
-                x.slice(0, 0)
-            }
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
+        let program_slice = {
+            let mut generator = SierraGenerator::<ArraySliceLibfunc>::default();
 
-        assert_eq!(
-            result,
-            Value::Enum {
-                tag: 0,
-                value: Box::new(Value::Struct {
-                    fields: vec![Value::Struct {
-                        fields: vec![Value::Array(vec![])],
-                        debug_name: None,
-                    }],
-                    debug_name: None,
-                }),
-                debug_name: None
-            },
-        );
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let Value::Enum {
+            tag: _,
+            value,
+            debug_name: _,
+        } = run_sierra_program(
+            &program_slice,
+            &[Value::Array(vec![]), Value::Uint32(0), Value::Uint32(0)],
+        )
+        .return_value
+        else {
+            panic!("enum should contain an array")
+        };
+
+        assert_eq!(*value, Value::Array(vec![]));
     }
 
     #[test]
@@ -1697,100 +1782,145 @@ mod test {
 
     #[test]
     fn seq_append1() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_append = {
+            let mut generator = SierraGenerator::<ArrayAppendLibfunc>::default();
 
-            fn run_test() -> Array<u32> {
-                let mut data = ArrayTrait::new();
-                data.append(1);
-                data
-            }
-        );
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
 
         assert_eq!(
-            run_program(&program, "run_test", &[]).return_value,
+            run_sierra_program(&program_append, &[Value::Array(vec![]), Value::Uint32(1)])
+                .return_value,
             Value::from([1u32]),
         );
     }
 
     #[test]
     fn seq_append2() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_append = {
+            let mut generator = SierraGenerator::<ArrayAppendLibfunc>::default();
 
-            fn run_test() -> Array<u32> {
-                let mut data = ArrayTrait::new();
-                data.append(1);
-                data.append(2);
-                data
-            }
-        );
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let result = run_sierra_program(&program_append, &[Value::Array(vec![]), Value::Uint32(1)])
+            .return_value;
 
         assert_eq!(
-            run_program(&program, "run_test", &[]).return_value,
+            run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value,
             Value::from([1u32, 2u32]),
         );
     }
 
     #[test]
     fn seq_append2_popf1() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_append = {
+            let mut generator = SierraGenerator::<ArrayAppendLibfunc>::default();
 
-            fn run_test() -> Array<u32> {
-                let mut data = ArrayTrait::new();
-                data.append(1);
-                data.append(2);
-                let _ = data.pop_front();
-                data
-            }
-        );
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
 
-        assert_eq!(
-            run_program(&program, "run_test", &[]).return_value,
-            Value::from([2u32]),
-        );
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+        let program_pop = {
+            let mut generator = SierraGenerator::<ArrayPopFrontLibfunc>::default();
+
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let result = run_sierra_program(&program_append, &[Value::Array(vec![]), Value::Uint32(1)])
+            .return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let Value::Enum {
+            tag: _,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_pop, &[result]).return_value
+        else {
+            panic!("should be an enum")
+        };
+        let Value::Struct {
+            fields,
+            debug_name: _,
+        } = *value
+        else {
+            panic!("should be an struct");
+        };
+
+        assert_eq!(fields[0], Value::from([2u32]),);
     }
 
     #[test]
     fn seq_append2_popb1() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_append = {
+            let mut generator = SierraGenerator::<ArrayAppendLibfunc>::default();
 
-            fn run_test() -> Span<u32> {
-                let mut data = ArrayTrait::new();
-                data.append(1);
-                data.append(2);
-                let mut data = data.span();
-                let _ = data.pop_back();
-                data
-            }
-        );
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+        let program_pop = {
+            let mut generator = SierraGenerator::<ArraySnapshotPopBackLibfunc>::default();
+
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let result = run_sierra_program(&program_append, &[Value::Array(vec![]), Value::Uint32(1)])
+            .return_value;
+        let result = run_sierra_program(&program_append, &[result, Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_pop, &[result]).return_value;
 
         assert_eq!(
-            run_program(&program, "run_test", &[]).return_value,
-            jit_struct!([1u32].into())
+            result,
+            jit_enum!(0, jit_struct!([1u32].into(), 2u32.into()))
         );
     }
 
     #[test]
     fn seq_append1_popf1_append1() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_append = {
+            let mut generator = SierraGenerator::<ArrayAppendLibfunc>::default();
 
-            fn run_test() -> Array<u32> {
-                let mut data = ArrayTrait::new();
-                data.append(1);
-                let _ = data.pop_front();
-                data.append(2);
-                data
-            }
-        );
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
 
-        assert_eq!(
-            run_program(&program, "run_test", &[]).return_value,
-            Value::from([2u32]),
-        );
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+        let program_pop = {
+            let mut generator = SierraGenerator::<ArrayPopFrontLibfunc>::default();
+
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let array = Value::Array(vec![1u32.into()]);
+
+        let Value::Enum {
+            tag: _,
+            value,
+            debug_name: _,
+        } = run_sierra_program(&program_pop, &[array]).return_value
+        else {
+            panic!("should be an enum")
+        };
+        let Value::Struct {
+            fields,
+            debug_name: _,
+        } = *value
+        else {
+            panic!("should be an struct");
+        };
+        let result = run_sierra_program(&program_append, &[fields[0].clone(), Value::Uint32(2)])
+            .return_value;
+
+        assert_eq!(result, Value::from([2u32]),);
     }
 
     #[test]
@@ -1972,17 +2102,23 @@ mod test {
 
     #[test]
     fn array_empty_span() {
-        // Tests snapshot_take on a empty array.
-        let program = load_cairo!(
-            fn run_test() -> Span<u32> {
-                let x = ArrayTrait::new();
-                x.span()
-            }
-        );
+        let program_span = {
+            let mut generator = SierraGenerator::<SnapshotTakeLibfunc>::default();
+
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            let array_ty = generator
+                .push_type_declaration::<ArrayType>(&[GenericArg::Type(u32_ty)])
+                .clone();
+
+            generator.build(&[GenericArg::Type(array_ty)])
+        };
+        println!("{program_span}");
+        let result = run_sierra_program(&program_span, &[Value::Array(vec![])]).return_value;
 
         assert_eq!(
-            run_program(&program, "run_test", &[]).return_value,
-            jit_struct!(Value::Array(vec![])),
+            result,
+            jit_struct!(Value::Array(vec![]), Value::Array(vec![])),
         );
     }
 
@@ -2097,39 +2233,50 @@ mod test {
 
     #[test]
     fn snapshot_multi_pop_front() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_multi = {
+            let mut generator = SierraGenerator::<ArraySnapshotMultiPopFrontLibfunc>::default();
 
-            fn run_test() -> (Span<felt252>, @Box<[felt252; 3]>) {
-                let mut numbers = array![1, 2, 3, 4, 5, 6].span();
-                let popped = numbers.multi_pop_front::<3>().unwrap();
+            let felt252_ty = generator.push_type_declaration::<Felt252Type>(&[]).clone();
+            let struct_ty = generator
+                .push_type_declaration::<StructType>(&[
+                    GenericArg::UserType(UserTypeId::from_string("Tuple")),
+                    GenericArg::Type(felt252_ty.clone()),
+                    GenericArg::Type(felt252_ty.clone()),
+                    GenericArg::Type(felt252_ty),
+                ])
+                .clone();
 
-                (numbers, popped)
-            }
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
+            generator.build(&[GenericArg::Type(struct_ty)])
+        };
+        let array = [
+            Value::Felt252(1.into()),
+            Value::Felt252(2.into()),
+            Value::Felt252(3.into()),
+            Value::Felt252(4.into()),
+            Value::Felt252(5.into()),
+            Value::Felt252(6.into()),
+        ]
+        .into();
+
+        let result = run_sierra_program(&program_multi, &[array, Value::Uint32(3)]).return_value;
 
         assert_eq!(
             result,
-            // Panic result
             jit_enum!(
                 0,
                 jit_struct!(
-                    // Tuple
+                    // Span of original array
+                    Value::Array(vec![
+                        Value::Felt252(4.into()),
+                        Value::Felt252(5.into()),
+                        Value::Felt252(6.into()),
+                    ]),
+                    // Box of fixed array
                     jit_struct!(
-                        // Span of original array
-                        jit_struct!(Value::Array(vec![
-                            Value::Felt252(4.into()),
-                            Value::Felt252(5.into()),
-                            Value::Felt252(6.into()),
-                        ])),
-                        // Box of fixed array
-                        jit_struct!(
-                            Value::Felt252(1.into()),
-                            Value::Felt252(2.into()),
-                            Value::Felt252(3.into())
-                        ),
-                    )
+                        Value::Felt252(1.into()),
+                        Value::Felt252(2.into()),
+                        Value::Felt252(3.into())
+                    ),
                 )
             )
         );
@@ -2137,20 +2284,63 @@ mod test {
 
     #[test]
     fn snapshot_failed_multi_pop_front() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_multi = {
+            let mut generator = SierraGenerator::<ArraySnapshotMultiPopFrontLibfunc>::default();
 
-            fn run_test() -> Span<felt252> {
-                let mut numbers = array![1, 2].span();
+            let felt252_ty = generator.push_type_declaration::<Felt252Type>(&[]).clone();
+            let struct_ty = generator
+                .push_type_declaration::<StructType>(&[
+                    GenericArg::UserType(UserTypeId::from_string("Tuple")),
+                    GenericArg::Type(felt252_ty.clone()),
+                    GenericArg::Type(felt252_ty.clone()),
+                    GenericArg::Type(felt252_ty),
+                ])
+                .clone();
 
-                // should fail (return none)
-                assert!(numbers.multi_pop_front::<3>().is_none());
+            generator.build(&[GenericArg::Type(struct_ty)])
+        };
+        let array = Value::Array(vec![Value::Felt252(1.into()), Value::Felt252(2.into())]);
 
-                numbers
-            }
+        let result =
+            run_sierra_program(&program_multi, &[array.clone(), Value::Uint32(3)]).return_value;
+
+        assert_eq!(
+            result,
+            // Panic result
+            jit_enum!(1, array)
         );
+    }
 
-        let result = run_program(&program, "run_test", &[]).return_value;
+    #[test]
+    fn snapshot_multi_pop_back() {
+        let program_multi_back = {
+            let mut generator = SierraGenerator::<ArraySnapshotMultiPopBackLibfunc>::default();
+
+            let felt252_ty = generator.push_type_declaration::<Felt252Type>(&[]).clone();
+            let struct_ty = generator
+                .push_type_declaration::<StructType>(&[
+                    GenericArg::UserType(UserTypeId::from_string("Tuple")),
+                    GenericArg::Type(felt252_ty.clone()),
+                    GenericArg::Type(felt252_ty.clone()),
+                    GenericArg::Type(felt252_ty),
+                ])
+                .clone();
+
+            generator.build(&[GenericArg::Type(struct_ty)])
+        };
+
+        let array = [
+            Value::Felt252(1.into()),
+            Value::Felt252(2.into()),
+            Value::Felt252(3.into()),
+            Value::Felt252(4.into()),
+            Value::Felt252(5.into()),
+            Value::Felt252(6.into()),
+        ]
+        .into();
+
+        let result =
+            run_sierra_program(&program_multi_back, &[array, Value::Uint32(3)]).return_value;
 
         assert_eq!(
             result,
@@ -2159,49 +2349,16 @@ mod test {
                 0,
                 jit_struct!(
                     // Span of original array
-                    jit_struct!(Value::Array(vec![
+                    Value::Array(vec![
                         Value::Felt252(1.into()),
                         Value::Felt252(2.into()),
-                    ]),)
-                )
-            )
-        );
-    }
-
-    #[test]
-    fn snapshot_multi_pop_back() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
-
-            fn run_test() -> (Span<felt252>, @Box<[felt252; 3]>) {
-                let mut numbers = array![1, 2, 3, 4, 5, 6].span();
-                let popped = numbers.multi_pop_back::<3>().unwrap();
-
-                (numbers, popped)
-            }
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
-
-        assert_eq!(
-            result,
-            // Panic result
-            jit_enum!(
-                0,
-                jit_struct!(
-                    // Tuple
+                        Value::Felt252(3.into()),
+                    ]),
+                    // Box of fixed array
                     jit_struct!(
-                        // Span of original array
-                        jit_struct!(Value::Array(vec![
-                            Value::Felt252(1.into()),
-                            Value::Felt252(2.into()),
-                            Value::Felt252(3.into()),
-                        ])),
-                        // Box of fixed array
-                        jit_struct!(
-                            Value::Felt252(4.into()),
-                            Value::Felt252(5.into()),
-                            Value::Felt252(6.into())
-                        ),
+                        Value::Felt252(4.into()),
+                        Value::Felt252(5.into()),
+                        Value::Felt252(6.into())
                     )
                 )
             )
@@ -2210,20 +2367,113 @@ mod test {
 
     #[test]
     fn snapshot_failed_multi_pop_back() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
+        let program_multi = {
+            let mut generator = SierraGenerator::<ArraySnapshotMultiPopBackLibfunc>::default();
 
-            fn run_test() -> Span<felt252> {
-                let mut numbers = array![1, 2].span();
+            let felt252_ty = generator.push_type_declaration::<Felt252Type>(&[]).clone();
+            let struct_ty = generator
+                .push_type_declaration::<StructType>(&[
+                    GenericArg::UserType(UserTypeId::from_string("Tuple")),
+                    GenericArg::Type(felt252_ty.clone()),
+                    GenericArg::Type(felt252_ty.clone()),
+                    GenericArg::Type(felt252_ty),
+                ])
+                .clone();
 
-                // should fail (return none)
-                assert!(numbers.multi_pop_back::<3>().is_none());
+            generator.build(&[GenericArg::Type(struct_ty)])
+        };
+        let array = Value::Array(vec![Value::Felt252(1.into()), Value::Felt252(2.into())]);
 
-                numbers
-            }
+        let result =
+            run_sierra_program(&program_multi, &[array.clone(), Value::Uint32(3)]).return_value;
+
+        assert_eq!(
+            result,
+            // Panic result
+            jit_enum!(1, array)
+        );
+    }
+
+    #[test]
+    fn snapshot_multi_pop_back_front() {
+        let program_multi_front = {
+            let mut generator = SierraGenerator::<ArraySnapshotMultiPopFrontLibfunc>::default();
+
+            let felt252_ty = generator.push_type_declaration::<Felt252Type>(&[]).clone();
+            let struct_ty = generator
+                .push_type_declaration::<StructType>(&[
+                    GenericArg::UserType(UserTypeId::from_string("Tuple")),
+                    GenericArg::Type(felt252_ty.clone()),
+                    GenericArg::Type(felt252_ty),
+                ])
+                .clone();
+
+            generator.build(&[GenericArg::Type(struct_ty)])
+        };
+        let program_multi_back = {
+            let mut generator = SierraGenerator::<ArraySnapshotMultiPopBackLibfunc>::default();
+
+            let felt252_ty = generator.push_type_declaration::<Felt252Type>(&[]).clone();
+            let struct_ty = generator
+                .push_type_declaration::<StructType>(&[
+                    GenericArg::UserType(UserTypeId::from_string("Tuple")),
+                    GenericArg::Type(felt252_ty.clone()),
+                    GenericArg::Type(felt252_ty),
+                ])
+                .clone();
+
+            generator.build(&[GenericArg::Type(struct_ty)])
+        };
+        let array = [
+            Value::Felt252(1.into()),
+            Value::Felt252(2.into()),
+            Value::Felt252(3.into()),
+            Value::Felt252(4.into()),
+            Value::Felt252(5.into()),
+            Value::Felt252(6.into()),
+        ]
+        .into();
+        let enum_res =
+            run_sierra_program(&program_multi_front, &[array, Value::Uint32(2)]).return_value;
+        let Value::Enum {
+            tag: _,
+            value,
+            debug_name: _,
+        } = enum_res.clone()
+        else {
+            panic!("should be an enum");
+        };
+        // fields is a array -> [rem_array, popped_elem_array]
+        let Value::Struct {
+            fields,
+            debug_name: _,
+        } = *value
+        else {
+            panic!("should be a struct");
+        };
+
+        assert_eq!(
+            enum_res,
+            // Panic result
+            jit_enum!(
+                0,
+                jit_struct!(
+                    // Span of original array
+                    Value::Array(vec![
+                        Value::Felt252(3.into()),
+                        Value::Felt252(4.into()),
+                        Value::Felt252(5.into()),
+                        Value::Felt252(6.into()),
+                    ]),
+                    // Box of fixed array
+                    jit_struct!(Value::Felt252(1.into()), Value::Felt252(2.into())),
+                )
+            )
         );
 
-        let result = run_program(&program, "run_test", &[]).return_value;
+        let result =
+            run_sierra_program(&program_multi_back, &[fields[0].clone(), Value::Uint32(2)])
+                .return_value;
 
         assert_eq!(
             result,
@@ -2232,48 +2482,9 @@ mod test {
                 0,
                 jit_struct!(
                     // Span of original array
-                    jit_struct!(Value::Array(vec![
-                        Value::Felt252(1.into()),
-                        Value::Felt252(2.into()),
-                    ]),)
-                )
-            )
-        );
-    }
-
-    #[test]
-    fn snapshot_multi_pop_back_front() {
-        let program = load_cairo!(
-            use array::ArrayTrait;
-
-            fn run_test() -> (Span<felt252>, @Box<[felt252; 2]>, @Box<[felt252; 2]>) {
-                let mut numbers = array![1, 2, 3, 4, 5, 6].span();
-                let popped_front = numbers.multi_pop_front::<2>().unwrap();
-                let popped_back = numbers.multi_pop_back::<2>().unwrap();
-
-                (numbers, popped_front, popped_back)
-            }
-        );
-        let result = run_program(&program, "run_test", &[]).return_value;
-
-        assert_eq!(
-            result,
-            // Panic result
-            jit_enum!(
-                0,
-                jit_struct!(
-                    // Tuple
-                    jit_struct!(
-                        // Span of original array
-                        jit_struct!(Value::Array(vec![
-                            Value::Felt252(3.into()),
-                            Value::Felt252(4.into()),
-                        ])),
-                        // Box of fixed array
-                        jit_struct!(Value::Felt252(1.into()), Value::Felt252(2.into()),),
-                        // Box of fixed array
-                        jit_struct!(Value::Felt252(5.into()), Value::Felt252(6.into())),
-                    )
+                    Value::Array(vec![Value::Felt252(3.into()), Value::Felt252(4.into()),]),
+                    // Box of fixed array
+                    jit_struct!(Value::Felt252(5.into()), Value::Felt252(6.into()),),
                 )
             )
         );

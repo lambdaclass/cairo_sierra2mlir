@@ -160,22 +160,24 @@ pub fn build_divmod_u256<'ctx, 'this>(
 #[cfg(test)]
 mod test {
     use crate::{
-        utils::test::{jit_struct, load_cairo, run_program_assert_output},
+        utils::{
+            sierra_gen::SierraGenerator,
+            test::{jit_struct, run_sierra_program},
+        },
         values::Value,
     };
-    use cairo_lang_sierra::program::Program;
+    use cairo_lang_sierra::{
+        extensions::int::unsigned512::Uint512DivmodU256Libfunc, program::Program,
+    };
     use lazy_static::lazy_static;
     use num_bigint::BigUint;
     use num_traits::One;
 
     lazy_static! {
-        static ref UINT512_DIVMOD_U256: (String, Program) = load_cairo! {
-            use core::integer::{u512, u512_safe_divmod_by_u256};
+        static ref UINT512_DIVMOD_U256: Program = {
+            let generator = SierraGenerator::<Uint512DivmodU256Libfunc>::default();
 
-            fn run_test(lhs: u512, rhs: NonZero<u256>) -> (u512, u256) {
-                let (lhs, rhs, _, _, _, _, _) = u512_safe_divmod_by_u256(lhs, rhs);
-                (lhs, rhs)
-            }
+            generator.build(&[])
         };
     }
 
@@ -205,12 +207,18 @@ mod test {
             let rhs = u256(rhs);
             let output_u512 = u512(output_u512);
             let output_u256 = u256(output_u256);
-            run_program_assert_output(
-                &UINT512_DIVMOD_U256,
-                "run_test",
-                &[lhs, rhs],
-                jit_struct!(output_u512, output_u256),
-            );
+
+            let Value::Struct {
+                fields,
+                debug_name: _,
+            } = run_sierra_program(&UINT512_DIVMOD_U256, &[lhs, rhs]).return_value
+            else {
+                panic!("should be a struct");
+            };
+
+            let result = jit_struct!(fields[0].clone(), fields[1].clone());
+
+            assert_eq!(result, jit_struct!(output_u512, output_u256));
         }
 
         r2(0u32.into(), 1u32.into(), 0u32.into(), 0u32.into());

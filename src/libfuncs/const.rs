@@ -307,29 +307,78 @@ pub fn build_const_type_value<'ctx, 'this>(
 
 #[cfg(test)]
 pub mod test {
+    use cairo_lang_sierra::{
+        extensions::{
+            boxing::UnboxLibfunc,
+            const_type::{ConstAsBoxLibfunc, ConstType},
+            int::signed::Sint32Type,
+            structure::StructType,
+        },
+        ids::UserTypeId,
+        program::GenericArg,
+    };
+
     use crate::{
-        utils::test::{jit_struct, load_cairo, run_program},
+        utils::{
+            sierra_gen::SierraGenerator,
+            test::{jit_struct, run_sierra_program},
+        },
         values::Value,
     };
 
     #[test]
     fn run_const_as_box() {
-        let program = load_cairo!(
-            use core::box::BoxTrait;
+        let program_as_const = {
+            let mut generator = SierraGenerator::<ConstAsBoxLibfunc>::default();
 
-            struct Hello {
-                x: i32,
-            }
+            let i32_ty = generator.push_type_declaration::<Sint32Type>(&[]).clone();
 
-            fn run_test() -> Hello {
-                let x = BoxTrait::new(Hello {
-                    x: -2
-                });
-                x.unbox()
-            }
-        );
+            let const_i32_ty = generator
+                .push_type_declaration::<ConstType>(&[
+                    GenericArg::Type(i32_ty.clone()),
+                    GenericArg::Value((-2).into()),
+                ])
+                .clone();
 
-        let result = run_program(&program, "run_test", &[]).return_value;
+            let struct_ty = generator
+                .push_type_declaration::<StructType>(&[
+                    GenericArg::UserType(UserTypeId::from_string("Hello")),
+                    GenericArg::Type(i32_ty),
+                ])
+                .clone();
+
+            let const_struct_ty = generator
+                .push_type_declaration::<ConstType>(&[
+                    GenericArg::Type(struct_ty),
+                    GenericArg::Type(const_i32_ty.clone()),
+                ])
+                .clone();
+
+            generator.build(&[
+                GenericArg::Type(const_struct_ty),
+                GenericArg::Value(0.into()),
+            ])
+        };
+
+        let program_unbox = {
+            let mut generator = SierraGenerator::<UnboxLibfunc>::default();
+
+            let i32_type = generator.push_type_declaration::<Sint32Type>(&[]).clone();
+
+            let struct_type = generator
+                .push_type_declaration::<StructType>(&[
+                    GenericArg::UserType(UserTypeId::from_string("Hello")),
+                    GenericArg::Type(i32_type),
+                ])
+                .clone();
+
+            generator.build(&[GenericArg::Type(struct_type)])
+        };
+
+        let result = run_sierra_program(&program_as_const, &[]).return_value;
+
+        let result = run_sierra_program(&program_unbox, &[result]).return_value;
+
         assert_eq!(result, jit_struct!(Value::Sint32(-2)));
     }
 }

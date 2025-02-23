@@ -2745,268 +2745,315 @@ pub fn build_get_class_hash_at<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
-    use crate::utils::test::{jit_enum, jit_struct, load_cairo, run_program_assert_output};
-    use cairo_lang_sierra::program::Program;
+    use crate::{
+        utils::{
+            sierra_gen::SierraGenerator,
+            test::{jit_enum, jit_struct, run_sierra_program},
+        },
+        Value,
+    };
+    use cairo_lang_sierra::{
+        extensions::{
+            starknet::{
+                interoperability::ClassHashConstLibfunc,
+                storage::{
+                    StorageAddressFromBaseAndOffsetLibfunc, StorageAddressFromBaseLibfunc,
+                    StorageAddressToFelt252Libfunc, StorageAddressTryFromFelt252Trait,
+                    StorageBaseAddressFromFelt252Libfunc,
+                },
+            },
+            try_from_felt252::TryFromFelt252Libfunc,
+        },
+        program::{GenericArg, Program},
+    };
     use lazy_static::lazy_static;
     use starknet_types_core::felt::Felt;
 
     lazy_static! {
-        static ref STORAGE_BASE_ADDRESS_FROM_FELT252: (String, Program) = load_cairo! {
-            use starknet::storage_access::{StorageBaseAddress, storage_base_address_from_felt252};
+        static ref STORAGE_BASE_ADDRESS_FROM_FELT252: Program = {
+            let generator = SierraGenerator::<StorageBaseAddressFromFelt252Libfunc>::default();
 
-            fn run_program(value: felt252) -> StorageBaseAddress {
-                storage_base_address_from_felt252(value)
-            }
+            generator.build(&[])
         };
-        static ref STORAGE_ADDRESS_FROM_BASE: (String, Program) = load_cairo! {
-            use starknet::storage_access::{StorageAddress, StorageBaseAddress, storage_address_from_base};
+        static ref STORAGE_ADDRESS_FROM_BASE: Program = {
+            let generator = SierraGenerator::<StorageAddressFromBaseLibfunc>::default();
 
-            fn run_program(value: StorageBaseAddress) -> StorageAddress {
-                storage_address_from_base(value)
-            }
+            generator.build(&[])
         };
-        static ref STORAGE_ADDRESS_FROM_BASE_AND_OFFSET: (String, Program) = load_cairo! {
-            use starknet::storage_access::{StorageAddress, StorageBaseAddress, storage_address_from_base_and_offset};
+        static ref STORAGE_ADDRESS_FROM_BASE_AND_OFFSET: Program = {
+            let generator = SierraGenerator::<StorageAddressFromBaseAndOffsetLibfunc>::default();
 
-            fn run_program(addr: StorageBaseAddress, offset: u8) -> StorageAddress {
-                storage_address_from_base_and_offset(addr, offset)
-            }
+            generator.build(&[])
         };
-        static ref STORAGE_ADDRESS_TO_FELT252: (String, Program) = load_cairo! {
-            use starknet::storage_access::{StorageAddress, storage_address_to_felt252};
+        static ref STORAGE_ADDRESS_TO_FELT252: Program = {
+            let generator = SierraGenerator::<StorageAddressToFelt252Libfunc>::default();
 
-            fn run_program(value: StorageAddress) -> felt252 {
-                storage_address_to_felt252(value)
-            }
+            generator.build(&[])
         };
-        static ref STORAGE_ADDRESS_TRY_FROM_FELT252: (String, Program) = load_cairo! {
-            use starknet::storage_access::{StorageAddress, storage_address_try_from_felt252};
+        static ref STORAGE_ADDRESS_TRY_FROM_FELT252: Program = {
+            let generator = SierraGenerator::<
+                TryFromFelt252Libfunc<StorageAddressTryFromFelt252Trait>,
+            >::default();
 
-            fn run_program(value: felt252) -> Option<StorageAddress> {
-                storage_address_try_from_felt252(value)
-            }
+            generator.build(&[])
         };
-        static ref CLASS_HASH_CONST: (String, Program) = load_cairo! {
-            use starknet::class_hash::{class_hash_const, ClassHash};
+        static ref CLASS_HASH_CONST: Program = {
+            let generator = SierraGenerator::<ClassHashConstLibfunc>::default();
 
-            fn run_program() -> ClassHash {
-                class_hash_const::<0>()
-            }
+            generator.build(&[GenericArg::Value(0.into())])
         };
     }
 
     #[test]
     fn class_hash_const() {
-        run_program_assert_output(&CLASS_HASH_CONST, "run_program", &[], Felt::ZERO.into())
+        let result = run_sierra_program(&CLASS_HASH_CONST, &[]).return_value;
+
+        assert_eq!(Value::Felt252(0.into()), result);
     }
 
     #[test]
     fn storage_base_address_from_felt252() {
-        run_program_assert_output(
-            &STORAGE_BASE_ADDRESS_FROM_FELT252,
-            "run_program",
-            &[Felt::ZERO.into()],
-            Felt::ZERO.into(),
+        let result = run_sierra_program(&STORAGE_BASE_ADDRESS_FROM_FELT252, &[Felt::ZERO.into()])
+            .return_value;
+
+        assert_eq!(Value::Felt252(0.into()), result);
+
+        let result = run_sierra_program(&STORAGE_BASE_ADDRESS_FROM_FELT252, &[Felt::ONE.into()])
+            .return_value;
+
+        assert_eq!(Value::Felt252(1.into()), result);
+
+        let result =
+            run_sierra_program(&STORAGE_BASE_ADDRESS_FROM_FELT252, &[Felt::from(-1).into()])
+                .return_value;
+
+        assert_eq!(
+            Value::Felt252(
+                Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
+                    .unwrap()
+            ),
+            result
         );
-        run_program_assert_output(
+
+        let result = run_sierra_program(
             &STORAGE_BASE_ADDRESS_FROM_FELT252,
-            "run_program",
-            &[Felt::ONE.into()],
-            Felt::ONE.into(),
-        );
-        run_program_assert_output(
-            &STORAGE_BASE_ADDRESS_FROM_FELT252,
-            "run_program",
-            &[Felt::from(-1).into()],
-            Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
-                .unwrap()
-                .into(),
-        );
-        run_program_assert_output(
-            &STORAGE_BASE_ADDRESS_FROM_FELT252,
-            "run_program",
             &[Felt::from_dec_str(
                 "3618502788666131106986593281521497120414687020801267626233049500247285300992",
             )
             .unwrap()
             .into()],
-            Felt::ZERO.into(),
-        );
+        )
+        .return_value;
+
+        assert_eq!(Value::Felt252(0.into()), result);
     }
 
     #[test]
     fn storage_address_from_base() {
-        run_program_assert_output(
+        let result =
+            run_sierra_program(&STORAGE_ADDRESS_FROM_BASE, &[Felt::ZERO.into()]).return_value;
+
+        assert_eq!(Value::Felt252(0.into()), result);
+
+        let result =
+            run_sierra_program(&STORAGE_ADDRESS_FROM_BASE, &[Felt::ONE.into()]).return_value;
+
+        assert_eq!(Value::Felt252(1.into()), result);
+
+        let result = run_sierra_program(
             &STORAGE_ADDRESS_FROM_BASE,
-            "run_program",
-            &[Felt::ZERO.into()],
-            Felt::ZERO.into(),
-        );
-        run_program_assert_output(
-            &STORAGE_ADDRESS_FROM_BASE,
-            "run_program",
-            &[Felt::ONE.into()],
-            Felt::ONE.into(),
-        );
-        run_program_assert_output(
-            &STORAGE_ADDRESS_FROM_BASE,
-            "run_program",
             &[
                 Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
                     .unwrap()
                     .into(),
             ],
-            Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
-                .unwrap()
-                .into(),
+        )
+        .return_value;
+
+        assert_eq!(
+            Value::Felt252(
+                Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
+                    .unwrap()
+            ),
+            result
         );
     }
 
     #[test]
     fn storage_address_from_base_and_offset() {
-        run_program_assert_output(
+        let result = run_sierra_program(
             &STORAGE_ADDRESS_FROM_BASE_AND_OFFSET,
-            "run_program",
             &[Felt::ZERO.into(), 0u8.into()],
-            Felt::ZERO.into(),
-        );
-        run_program_assert_output(
+        )
+        .return_value;
+
+        assert_eq!(Value::Felt252(0.into()), result);
+
+        let result = run_sierra_program(
             &STORAGE_ADDRESS_FROM_BASE_AND_OFFSET,
-            "run_program",
             &[Felt::ONE.into(), 0u8.into()],
-            Felt::ONE.into(),
-        );
-        run_program_assert_output(
+        )
+        .return_value;
+
+        assert_eq!(Value::Felt252(1.into()), result);
+
+        let result = run_sierra_program(
             &STORAGE_ADDRESS_FROM_BASE_AND_OFFSET,
-            "run_program",
             &[
                 Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
                     .unwrap()
                     .into(),
                 0u8.into(),
             ],
-            Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
-                .unwrap()
-                .into(),
+        )
+        .return_value;
+
+        assert_eq!(
+            Value::Felt252(
+                Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
+                    .unwrap()
+            ),
+            result
         );
 
-        run_program_assert_output(
+        let result = run_sierra_program(
             &STORAGE_ADDRESS_FROM_BASE_AND_OFFSET,
-            "run_program",
             &[Felt::ZERO.into(), 1u8.into()],
-            Felt::ONE.into(),
-        );
-        run_program_assert_output(
+        )
+        .return_value;
+
+        assert_eq!(Value::Felt252(1.into()), result);
+
+        let result = run_sierra_program(
             &STORAGE_ADDRESS_FROM_BASE_AND_OFFSET,
-            "run_program",
             &[Felt::ONE.into(), 1u8.into()],
-            Felt::from(2).into(),
-        );
-        run_program_assert_output(
+        )
+        .return_value;
+
+        assert_eq!(Value::Felt252(2.into()), result);
+
+        let result = run_sierra_program(
             &STORAGE_ADDRESS_FROM_BASE_AND_OFFSET,
-            "run_program",
             &[
                 Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
                     .unwrap()
                     .into(),
                 1u8.into(),
             ],
-            Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719489")
-                .unwrap()
-                .into(),
+        )
+        .return_value;
+
+        assert_eq!(
+            Value::Felt252(
+                Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719489")
+                    .unwrap()
+            ),
+            result
         );
 
-        run_program_assert_output(
+        let result = run_sierra_program(
             &STORAGE_ADDRESS_FROM_BASE_AND_OFFSET,
-            "run_program",
             &[Felt::ZERO.into(), 255u8.into()],
-            Felt::from(255).into(),
-        );
-        run_program_assert_output(
-            &STORAGE_ADDRESS_FROM_BASE_AND_OFFSET,
-            "run_program",
-            &[Felt::ONE.into(), 255u8.into()],
-            Felt::from(256).into(),
-        );
+        )
+        .return_value;
 
-        run_program_assert_output(
+        assert_eq!(Value::Felt252(255.into()), result);
+
+        let result = run_sierra_program(
             &STORAGE_ADDRESS_FROM_BASE_AND_OFFSET,
-            "run_program",
+            &[Felt::ONE.into(), 255u8.into()],
+        )
+        .return_value;
+
+        assert_eq!(Value::Felt252(256.into()), result);
+
+        let result = run_sierra_program(
+            &STORAGE_ADDRESS_FROM_BASE_AND_OFFSET,
             &[
                 Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
                     .unwrap()
                     .into(),
                 255u8.into(),
             ],
-            Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719743")
-                .unwrap()
-                .into(),
+        )
+        .return_value;
+
+        assert_eq!(
+            Value::Felt252(
+                Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719743")
+                    .unwrap()
+            ),
+            result
         );
     }
 
     #[test]
     fn storage_address_to_felt252() {
-        run_program_assert_output(
+        let result =
+            run_sierra_program(&STORAGE_ADDRESS_TO_FELT252, &[Felt::ZERO.into()]).return_value;
+
+        assert_eq!(Value::Felt252(0.into()), result);
+
+        let result =
+            run_sierra_program(&STORAGE_ADDRESS_TO_FELT252, &[Felt::ONE.into()]).return_value;
+
+        assert_eq!(Value::Felt252(1.into()), result);
+
+        let result = run_sierra_program(
             &STORAGE_ADDRESS_TO_FELT252,
-            "run_program",
-            &[Felt::ZERO.into()],
-            Felt::ZERO.into(),
-        );
-        run_program_assert_output(
-            &STORAGE_ADDRESS_TO_FELT252,
-            "run_program",
-            &[Felt::ONE.into()],
-            Felt::ONE.into(),
-        );
-        run_program_assert_output(
-            &STORAGE_ADDRESS_TO_FELT252,
-            "run_program",
             &[
                 Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
                     .unwrap()
                     .into(),
             ],
-            Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
-                .unwrap()
-                .into(),
+        )
+        .return_value;
+
+        assert_eq!(
+            Value::Felt252(
+                Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
+                    .unwrap()
+            ),
+            result
         );
     }
 
     #[test]
     fn storage_address_try_from_felt252() {
-        run_program_assert_output(
+        let result = run_sierra_program(&STORAGE_ADDRESS_TRY_FROM_FELT252, &[Felt::ZERO.into()])
+            .return_value;
+
+        assert_eq!(jit_enum!(0, Felt::ZERO.into()), result);
+
+        let result =
+            run_sierra_program(&STORAGE_ADDRESS_TRY_FROM_FELT252, &[Felt::ONE.into()]).return_value;
+
+        assert_eq!(jit_enum!(0, Felt::ONE.into()), result);
+
+        let result = run_sierra_program(
             &STORAGE_ADDRESS_TRY_FROM_FELT252,
-            "run_program",
-            &[Felt::ZERO.into()],
-            jit_enum!(0, Felt::ZERO.into()),
-        );
-        run_program_assert_output(
-            &STORAGE_ADDRESS_TRY_FROM_FELT252,
-            "run_program",
-            &[Felt::ONE.into()],
-            jit_enum!(0, Felt::ONE.into()),
-        );
-        run_program_assert_output(
-            &STORAGE_ADDRESS_TRY_FROM_FELT252,
-            "run_program",
             &[
                 Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
                     .unwrap()
                     .into(),
             ],
+        )
+        .return_value;
+
+        assert_eq!(
             jit_enum!(
                 0,
                 Felt::from_dec_str("106710729501573572985208420194530329073740042555888586719488")
                     .unwrap()
                     .into()
             ),
+            result
         );
 
-        run_program_assert_output(
-            &STORAGE_ADDRESS_TRY_FROM_FELT252,
-            "run_program",
-            &[Felt::from(-1).into()],
-            jit_enum!(1, jit_struct!()),
-        );
+        let result =
+            run_sierra_program(&STORAGE_ADDRESS_TRY_FROM_FELT252, &[Felt::from(-1).into()])
+                .return_value;
+
+        assert_eq!(jit_enum!(1, jit_struct!()), result);
     }
 }

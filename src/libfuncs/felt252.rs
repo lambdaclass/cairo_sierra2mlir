@@ -332,36 +332,45 @@ pub fn build_is_zero<'ctx, 'this>(
 #[cfg(test)]
 pub mod test {
     use crate::{
-        utils::test::{load_cairo, run_program},
+        utils::{
+            sierra_gen::SierraGenerator,
+            test::{load_cairo, run_program, run_sierra_program},
+        },
         values::Value,
     };
-    use cairo_lang_sierra::program::Program;
+    use cairo_lang_sierra::{
+        extensions::{
+            felt252::{Felt252BinaryOperationWithVarLibfunc, Felt252Traits},
+            is_zero::IsZeroLibfunc,
+        },
+        program::Program,
+    };
     use lazy_static::lazy_static;
     use starknet_types_core::felt::Felt;
 
     lazy_static! {
-        static ref FELT252_ADD: (String, Program) = load_cairo! {
-            fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
-                lhs + rhs
-            }
+        static ref FELT252_ADD: Program = {
+            let generator = SierraGenerator::<Felt252BinaryOperationWithVarLibfunc>::default();
+
+            generator.build_with_generic_id("felt252_add".into(), &[])
         };
 
-        static ref FELT252_SUB: (String, Program) = load_cairo! {
-            fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
-                lhs - rhs
-            }
+        static ref FELT252_SUB: Program = {
+            let generator = SierraGenerator::<Felt252BinaryOperationWithVarLibfunc>::default();
+
+            generator.build_with_generic_id("felt252_sub".into(), &[])
         };
 
-        static ref FELT252_MUL: (String, Program) = load_cairo! {
-            fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
-                lhs * rhs
-            }
+        static ref FELT252_MUL: Program = {
+            let generator = SierraGenerator::<Felt252BinaryOperationWithVarLibfunc>::default();
+
+            generator.build_with_generic_id("felt252_mul".into(), &[])
         };
 
-        static ref FELT252_DIV: (String, Program) = load_cairo! {
-            fn run_test(lhs: felt252, rhs: felt252) -> felt252 {
-                felt252_div(lhs, rhs.try_into().unwrap())
-            }
+        static ref FELT252_DIV: Program = {
+            let generator = SierraGenerator::<Felt252BinaryOperationWithVarLibfunc>::default();
+
+            generator.build_with_generic_id("felt252_div".into(), &[])
         };
 
         // TODO: Add test program for `felt252_add_const`.
@@ -382,13 +391,10 @@ pub mod test {
             }
         };
 
-        static ref FELT252_IS_ZERO: (String, Program) = load_cairo! {
-            fn run_test(x: felt252) -> bool {
-                match x {
-                    0 => true,
-                    _ => false,
-                }
-            }
+        static ref FELT252_IS_ZERO: Program = {
+            let generator = SierraGenerator::<IsZeroLibfunc<Felt252Traits>>::default();
+
+            generator.build(&[])
         };
     }
 
@@ -399,12 +405,8 @@ pub mod test {
     #[test]
     fn felt252_add() {
         fn r(lhs: Felt, rhs: Felt) -> Felt {
-            match run_program(
-                &FELT252_ADD,
-                "run_test",
-                &[Value::Felt252(lhs), Value::Felt252(rhs)],
-            )
-            .return_value
+            match run_sierra_program(&FELT252_ADD, &[Value::Felt252(lhs), Value::Felt252(rhs)])
+                .return_value
             {
                 Value::Felt252(x) => x,
                 _ => panic!("invalid return type"),
@@ -437,12 +439,8 @@ pub mod test {
     #[test]
     fn felt252_sub() {
         fn r(lhs: Felt, rhs: Felt) -> Felt {
-            match run_program(
-                &FELT252_SUB,
-                "run_test",
-                &[Value::Felt252(lhs), Value::Felt252(rhs)],
-            )
-            .return_value
+            match run_sierra_program(&FELT252_SUB, &[Value::Felt252(lhs), Value::Felt252(rhs)])
+                .return_value
             {
                 Value::Felt252(x) => x,
                 _ => panic!("invalid return type"),
@@ -473,12 +471,8 @@ pub mod test {
     #[test]
     fn felt252_mul() {
         fn r(lhs: Felt, rhs: Felt) -> Felt {
-            match run_program(
-                &FELT252_MUL,
-                "run_test",
-                &[Value::Felt252(lhs), Value::Felt252(rhs)],
-            )
-            .return_value
+            match run_sierra_program(&FELT252_MUL, &[Value::Felt252(lhs), Value::Felt252(rhs)])
+                .return_value
             {
                 Value::Felt252(x) => x,
                 _ => panic!("invalid return type"),
@@ -509,63 +503,43 @@ pub mod test {
     #[test]
     fn felt252_div() {
         // Helper function to run the test and extract the return value.
-        fn r(lhs: Felt, rhs: Felt) -> Option<Felt> {
-            match run_program(
-                &FELT252_DIV,
-                "run_test",
-                &[Value::Felt252(lhs), Value::Felt252(rhs)],
-            )
-            .return_value
-            {
-                Value::Enum { tag: 0, value, .. } => match *value {
-                    Value::Struct { fields, .. } => {
-                        assert_eq!(fields.len(), 1);
-                        Some(match &fields[0] {
-                            Value::Felt252(x) => *x,
-                            _ => panic!("invalid return type payload"),
-                        })
-                    }
-                    _ => panic!("invalid return type"),
-                },
-                Value::Enum { tag: 1, .. } => None,
-                _ => panic!("invalid return type"),
-            }
+        fn r(lhs: Felt, rhs: Felt) -> Felt {
+            let Value::Felt252(x) =
+                run_sierra_program(&FELT252_DIV, &[Value::Felt252(lhs), Value::Felt252(rhs)])
+                    .return_value
+            else {
+                panic!("invalid result");
+            };
+
+            x
         }
 
-        // Helper function to assert that a division panics.
-        let assert_panics =
-            |lhs, rhs| assert!(r(lhs, rhs).is_none(), "division by 0 is expected to panic",);
-
         // Division by zero is expected to panic.
-        assert_panics(f("0"), f("0"));
-        assert_panics(f("1"), f("0"));
-        assert_panics(f("-2"), f("0"));
+        assert_eq!(r(f("0"), f("0")), f("0"));
+        assert_eq!(r(f("1"), f("0")), f("0"));
+        assert_eq!(r(f("-2"), f("0")), f("0"));
 
         // Test cases for valid division results.
-        assert_eq!(r(f("0"), f("1")), Some(f("0")));
-        assert_eq!(r(f("0"), f("-2")), Some(f("0")));
-        assert_eq!(r(f("0"), f("-1")), Some(f("0")));
-        assert_eq!(r(f("1"), f("1")), Some(f("1")));
+        assert_eq!(r(f("0"), f("1")), f("0"));
+        assert_eq!(r(f("0"), f("-2")), f("0"));
+        assert_eq!(r(f("0"), f("-1")), f("0"));
+        assert_eq!(r(f("1"), f("1")), f("1"));
         assert_eq!(
             r(f("1"), f("-2")),
-            Some(f(
-                "1809251394333065606848661391547535052811553607665798349986546028067936010240"
-            ))
+            f("1809251394333065606848661391547535052811553607665798349986546028067936010240")
         );
-        assert_eq!(r(f("1"), f("-1")), Some(f("-1")));
-        assert_eq!(r(f("-2"), f("1")), Some(f("-2")));
-        assert_eq!(r(f("-2"), f("-2")), Some(f("1")));
-        assert_eq!(r(f("-2"), f("-1")), Some(f("2")));
-        assert_eq!(r(f("-1"), f("1")), Some(f("-1")));
+        assert_eq!(r(f("1"), f("-1")), f("-1"));
+        assert_eq!(r(f("-2"), f("1")), f("-2"));
+        assert_eq!(r(f("-2"), f("-2")), f("1"));
+        assert_eq!(r(f("-2"), f("-1")), f("2"));
+        assert_eq!(r(f("-1"), f("1")), f("-1"));
         assert_eq!(
             r(f("-1"), f("-2")),
-            Some(f(
-                "1809251394333065606848661391547535052811553607665798349986546028067936010241"
-            ))
+            f("1809251394333065606848661391547535052811553607665798349986546028067936010241")
         );
-        assert_eq!(r(f("-1"), f("-1")), Some(f("1")));
-        assert_eq!(r(f("6"), f("2")), Some(f("3")));
-        assert_eq!(r(f("1000"), f("2")), Some(f("500")));
+        assert_eq!(r(f("-1"), f("-1")), f("1"));
+        assert_eq!(r(f("6"), f("2")), f("3"));
+        assert_eq!(r(f("1000"), f("2")), f("500"));
     }
 
     #[test]
@@ -584,8 +558,8 @@ pub mod test {
     #[test]
     fn felt252_is_zero() {
         fn r(x: Felt) -> bool {
-            match run_program(&FELT252_IS_ZERO, "run_test", &[Value::Felt252(x)]).return_value {
-                Value::Enum { tag, .. } => tag != 0,
+            match run_sierra_program(&FELT252_IS_ZERO, &[Value::Felt252(x)]).return_value {
+                Value::Enum { tag, .. } => tag == 0,
                 _ => panic!("invalid return type"),
             }
         }

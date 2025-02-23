@@ -117,26 +117,40 @@ fn build_match_nullable<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
+    use cairo_lang_sierra::{
+        extensions::{
+            int::unsigned::Uint8Type,
+            nullable::{MatchNullableLibfunc, NullLibfunc, NullableFromBoxLibfunc, NullableType},
+        },
+        program::GenericArg,
+    };
+
     use crate::{
-        utils::test::{jit_enum, jit_struct, load_cairo, run_program_assert_output},
+        utils::{
+            sierra_gen::SierraGenerator,
+            test::{
+                jit_enum, jit_struct, load_cairo, run_program_assert_output, run_sierra_program,
+            },
+        },
         values::Value,
     };
 
     #[test]
     fn run_null() {
-        let program = load_cairo!(
-            use nullable::null;
-            use nullable::match_nullable;
-            use nullable::FromNullableResult;
-            use nullable::nullable_from_box;
-            use box::BoxTrait;
+        let program = {
+            let mut generator = SierraGenerator::<NullLibfunc>::default();
 
-            fn run_test() {
-                let _a: Nullable<u8> = null();
-            }
-        );
+            let u8_ty = generator.push_type_declaration::<Uint8Type>(&[]).clone();
+            let nullable_ty = generator
+                .push_type_declaration::<NullableType>(&[GenericArg::Type(u8_ty)])
+                .clone();
 
-        run_program_assert_output(&program, "run_test", &[], jit_struct!());
+            generator.build(&[GenericArg::Type(nullable_ty)])
+        };
+
+        let result = run_sierra_program(&program, &[]).return_value;
+
+        assert_eq!(Value::Null, result);
     }
 
     #[test]
@@ -159,30 +173,48 @@ mod test {
 
     #[test]
     fn run_not_null() {
-        let program = load_cairo!(
-            use nullable::null;
-            use nullable::match_nullable;
-            use nullable::FromNullableResult;
-            use nullable::nullable_from_box;
-            use box::BoxTrait;
+        let program_from_box = {
+            let mut generator = SierraGenerator::<NullableFromBoxLibfunc>::default();
 
-            fn run_test(x: u8) -> u8 {
-                let b: Box<u8> = BoxTrait::new(x);
-                let c = if x == 0 {
-                    null()
-                } else {
-                    nullable_from_box(b)
-                };
-                let d = match match_nullable(c) {
-                    FromNullableResult::Null(_) => 99_u8,
-                    FromNullableResult::NotNull(value) => value.unbox()
-                };
-                d
-            }
-        );
+            let u8_ty = generator.push_type_declaration::<Uint8Type>(&[]).clone();
 
-        run_program_assert_output(&program, "run_test", &[4u8.into()], 4u8.into());
-        run_program_assert_output(&program, "run_test", &[0u8.into()], 99u8.into());
+            generator.build(&[GenericArg::Type(u8_ty)])
+        };
+        let program_match = {
+            let mut generator = SierraGenerator::<MatchNullableLibfunc>::default();
+
+            let u8_ty = generator.push_type_declaration::<Uint8Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u8_ty)])
+        };
+
+        let result = run_sierra_program(&program_from_box, &[4u8.into()]).return_value;
+        let result = run_sierra_program(&program_match, &[result]).return_value;
+
+        assert_eq!(jit_enum!(1, 4u8.into()), result);
+
+        let result = run_sierra_program(&program_match, &[Value::Null]).return_value;
+
+        assert_eq!(jit_enum!(0, jit_struct!()), result);
+    }
+
+    #[test]
+    fn match_nullable() {
+        let program_match = {
+            let mut generator = SierraGenerator::<MatchNullableLibfunc>::default();
+
+            let u8_ty = generator.push_type_declaration::<Uint8Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u8_ty)])
+        };
+
+        println!("{program_match}");
+
+        let result = run_sierra_program(&program_match, &[Value::Null]).return_value;
+        assert_eq!(result, jit_enum!(0, jit_struct!()));
+
+        let result = run_sierra_program(&program_match, &[1u8.into()]).return_value;
+        assert_eq!(result, jit_enum!(1, 1u8.into()));
     }
 
     #[test]

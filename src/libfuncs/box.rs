@@ -152,41 +152,58 @@ pub fn build_unbox<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
+    use cairo_lang_sierra::{
+        extensions::{
+            boxing::{IntoBoxLibfunc, UnboxLibfunc},
+            int::unsigned::Uint32Type,
+        },
+        program::GenericArg,
+    };
+
     use crate::{
-        utils::test::{load_cairo, run_program_assert_output},
+        utils::{
+            sierra_gen::SierraGenerator,
+            test::{load_cairo, run_program_assert_output, run_sierra_program},
+        },
         values::Value,
     };
 
     #[test]
     fn run_box_unbox() {
-        let program = load_cairo! {
-            use box::BoxTrait;
-            use box::BoxImpl;
+        let program_box = {
+            let mut generator = SierraGenerator::<IntoBoxLibfunc>::default();
 
-            fn run_test() -> u32 {
-                let x: u32 = 2_u32;
-                let box_x: Box<u32> = BoxTrait::new(x);
-                box_x.unbox()
-            }
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+        let program_unbox = {
+            let mut generator = SierraGenerator::<UnboxLibfunc>::default();
+
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
         };
 
-        run_program_assert_output(&program, "run_test", &[], Value::Uint32(2));
+        let result = run_sierra_program(&program_box, &[Value::Uint32(2)]).return_value;
+        let result = run_sierra_program(&program_unbox, &[result]).return_value;
+
+        assert_eq!(result, Value::Uint32(2));
     }
 
     #[test]
     fn run_box() {
-        let program = load_cairo! {
-            use box::BoxTrait;
-            use box::BoxImpl;
+        let program_box = {
+            let mut generator = SierraGenerator::<IntoBoxLibfunc>::default();
 
-            fn run_test() -> Box<u32>  {
-                let x: u32 = 2_u32;
-                let box_x: Box<u32> = BoxTrait::new(x);
-                box_x
-            }
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u32_ty)])
         };
 
-        run_program_assert_output(&program, "run_test", &[], Value::Uint32(2));
+        let result = run_sierra_program(&program_box, &[Value::Uint32(2)]).return_value;
+
+        assert_eq!(result, Value::Uint32(2));
     }
 
     #[test]

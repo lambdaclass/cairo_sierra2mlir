@@ -163,23 +163,45 @@ pub fn build_squash<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
+
+    use cairo_lang_sierra::{
+        extensions::{
+            felt252_dict::{Felt252DictNewLibfunc, Felt252DictSquashLibfunc},
+            int::unsigned::{Uint32Type, Uint64Type},
+        },
+        program::GenericArg,
+    };
+
     use crate::{
-        utils::test::{jit_dict, jit_enum, jit_struct, load_cairo, run_program_assert_output},
+        utils::{
+            sierra_gen::SierraGenerator,
+            test::{
+                jit_dict, jit_enum, jit_struct, load_cairo, run_program_assert_output,
+                run_sierra_program,
+            },
+        },
         values::Value,
     };
 
     #[test]
     fn run_dict_new() {
-        let program = load_cairo!(
-            use traits::Default;
-            use dict::Felt252DictTrait;
+        let program = {
+            let mut generator = SierraGenerator::<Felt252DictNewLibfunc>::default();
 
-            fn run_test() {
-                let mut _dict: Felt252Dict<u32> = Default::default();
-            }
-        );
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
 
-        run_program_assert_output(&program, "run_test", &[], jit_struct!());
+            generator.build(&[GenericArg::Type(u32_ty)])
+        };
+
+        let result = run_sierra_program(&program, &[]).return_value;
+
+        let dict = Value::Felt252Dict {
+            value: HashMap::new(),
+            debug_name: None,
+        };
+
+        assert_eq!(result, dict);
     }
 
     #[test]
@@ -226,6 +248,24 @@ mod test {
                 5 => 6u32,
             ),
         );
+    }
+
+    #[test]
+    fn run_dict_squash() {
+        let program = {
+            let mut generator = SierraGenerator::<Felt252DictSquashLibfunc>::default();
+
+            let u64_ty = generator.push_type_declaration::<Uint64Type>(&[]).clone();
+
+            generator.build(&[GenericArg::Type(u64_ty)])
+        };
+
+        let dict = Value::Felt252Dict {
+            value: HashMap::new(),
+            debug_name: None,
+        };
+
+        run_sierra_program(&program, &[dict]);
     }
 
     #[test]

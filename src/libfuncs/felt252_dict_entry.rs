@@ -194,22 +194,6 @@ mod test {
     use crate::utils::test::{jit_dict, load_cairo, run_program_assert_output};
 
     #[test]
-    fn run_dict_insert() {
-        let program = load_cairo!(
-            use traits::Default;
-            use dict::Felt252DictTrait;
-
-            fn run_test() -> u32 {
-                let mut dict: Felt252Dict<u32> = Default::default();
-                dict.insert(2, 1_u32);
-                dict.get(2)
-            }
-        );
-
-        run_program_assert_output(&program, "run_test", &[], 1u32.into());
-    }
-
-    #[test]
     fn run_dict_insert_big() {
         let program = load_cairo!(
             use traits::Default;

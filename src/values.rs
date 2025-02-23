@@ -175,6 +175,16 @@ impl Value {
     ) -> Result<NonNull<()>, Error> {
         let ty = registry.get_type(type_id)?;
 
+        match ty {
+            CoreTypeConcrete::Box(info)
+            | CoreTypeConcrete::NonZero(info)
+            | CoreTypeConcrete::Nullable(info)
+            | CoreTypeConcrete::Snapshot(info) => {
+                return self.to_ptr(arena, registry, &info.ty, find_dict_overrides);
+            }
+            _ => {}
+        }
+
         Ok(unsafe {
             match self {
                 Self::Felt252(value) => {
@@ -749,9 +759,7 @@ impl Value {
                 CoreTypeConcrete::Uint32(_) => Self::Uint32(*ptr.cast::<u32>().as_ref()),
                 CoreTypeConcrete::Uint64(_) => Self::Uint64(*ptr.cast::<u64>().as_ref()),
                 CoreTypeConcrete::Uint128(_) => Self::Uint128(*ptr.cast::<u128>().as_ref()),
-                CoreTypeConcrete::Uint128MulGuarantee(_) => {
-                    native_panic!("todo: implement uint128mulguarantee from_ptr")
-                }
+                CoreTypeConcrete::Uint128MulGuarantee(_) => Self::Null,
                 CoreTypeConcrete::Sint8(_) => Self::Sint8(*ptr.cast::<i8>().as_ref()),
                 CoreTypeConcrete::Sint16(_) => Self::Sint16(*ptr.cast::<i16>().as_ref()),
                 CoreTypeConcrete::Sint32(_) => Self::Sint32(*ptr.cast::<i32>().as_ref()),

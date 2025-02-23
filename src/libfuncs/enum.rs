@@ -552,103 +552,160 @@ pub fn build_snapshot_match<'ctx, 'this>(
 
 #[cfg(test)]
 mod test {
+    use std::sync::{Arc, Mutex};
+
     use crate::{
         context::NativeContext,
-        utils::test::{jit_enum, jit_struct, load_cairo, run_program_assert_output},
+        utils::{
+            sierra_gen::SierraGenerator,
+            test::{jit_enum, run_sierra_program},
+        },
+        Value,
     };
-    use cairo_lang_sierra::program::Program;
+    use cairo_lang_sierra::{
+        extensions::{
+            enm::{EnumInitLibfunc, EnumMatchLibfunc, EnumType},
+            felt252::Felt252Type,
+            int::unsigned::{Uint16Type, Uint32Type, Uint64Type, Uint8Type},
+        },
+        ids::UserTypeId,
+        program::{GenericArg, Program},
+    };
     use lazy_static::lazy_static;
+    use num_bigint::BigInt;
     use starknet_types_core::felt::Felt;
 
     lazy_static! {
-        static ref ENUM_INIT: (String, Program) = load_cairo! {
-            enum MySmallEnum {
-                A: felt252,
-            }
+        static ref SMALL_ENUM_INIT: Program = {
+            let mut generator = SierraGenerator::<EnumInitLibfunc>::default();
 
-            enum MyEnum {
-                A: felt252,
-                B: u8,
-                C: u16,
-                D: u32,
-                E: u64,
-            }
+            let felt252_ty = generator.push_type_declaration::<Felt252Type>(&[]).clone();
 
-            fn run_test() -> (MySmallEnum, MyEnum, MyEnum, MyEnum, MyEnum, MyEnum) {
-                (
-                    MySmallEnum::A(-1),
-                    MyEnum::A(5678),
-                    MyEnum::B(90),
-                    MyEnum::C(9012),
-                    MyEnum::D(34567890),
-                    MyEnum::E(1234567890123456),
-                )
-            }
+            let enum_ty_1 = generator
+                .push_type_declaration::<EnumType>(&[
+                    GenericArg::UserType(UserTypeId::from_string("MySmallEnum")),
+                    GenericArg::Type(felt252_ty.clone()),
+                ])
+                .clone();
+
+            generator.build(&[GenericArg::Type(enum_ty_1), GenericArg::Value(BigInt::ZERO)])
         };
-        static ref ENUM_MATCH: (String, Program) = load_cairo! {
-            enum MyEnum {
-                A: felt252,
-                B: u8,
-                C: u16,
-                D: u32,
-                E: u64,
-            }
+        static ref ENUM_INIT: Arc<Mutex<dyn Fn(u32) -> Program + Send + 'static>> =
+            Arc::new(Mutex::new(|enum_index| {
+                let mut generator = SierraGenerator::<EnumInitLibfunc>::default();
 
-            fn match_a() -> felt252 {
-                let x = MyEnum::A(5);
-                match x {
-                    MyEnum::A(x) => x,
-                    MyEnum::B(_) => 0,
-                    MyEnum::C(_) => 1,
-                    MyEnum::D(_) => 2,
-                    MyEnum::E(_) => 3,
-                }
-            }
+                let felt252_ty = generator.push_type_declaration::<Felt252Type>(&[]).clone();
+                let u8_ty = generator.push_type_declaration::<Uint8Type>(&[]).clone();
+                let u16_ty = generator.push_type_declaration::<Uint16Type>(&[]).clone();
+                let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+                let u64_ty = generator.push_type_declaration::<Uint64Type>(&[]).clone();
 
-            fn match_b() -> u8 {
-                let x = MyEnum::B(5_u8);
-                match x {
-                    MyEnum::A(_) => 0_u8,
-                    MyEnum::B(x) => x,
-                    MyEnum::C(_) => 1_u8,
-                    MyEnum::D(_) => 2_u8,
-                    MyEnum::E(_) => 3_u8,
-                }
-            }
+                let enum_ty_2 = generator
+                    .push_type_declaration::<EnumType>(&[
+                        GenericArg::UserType(UserTypeId::from_string("MyEnum")),
+                        GenericArg::Type(felt252_ty.clone()),
+                        GenericArg::Type(u8_ty.clone()),
+                        GenericArg::Type(u16_ty.clone()),
+                        GenericArg::Type(u32_ty.clone()),
+                        GenericArg::Type(u64_ty.clone()),
+                    ])
+                    .clone();
+
+                generator.build(&[
+                    GenericArg::Type(enum_ty_2),
+                    GenericArg::Value(BigInt::from(enum_index)),
+                ])
+            }));
+        static ref ENUM_MATCH: Program = {
+            let mut generator = SierraGenerator::<EnumMatchLibfunc>::default();
+
+            let felt252_ty = generator.push_type_declaration::<Felt252Type>(&[]).clone();
+            let u8_ty = generator.push_type_declaration::<Uint8Type>(&[]).clone();
+            let u16_ty = generator.push_type_declaration::<Uint16Type>(&[]).clone();
+            let u32_ty = generator.push_type_declaration::<Uint32Type>(&[]).clone();
+            let u64_ty = generator.push_type_declaration::<Uint64Type>(&[]).clone();
+
+            let enum_ty = generator
+                .push_type_declaration::<EnumType>(&[
+                    GenericArg::UserType(UserTypeId::from_string("MyEnum")),
+                    GenericArg::Type(felt252_ty.clone()),
+                    GenericArg::Type(u8_ty.clone()),
+                    GenericArg::Type(u16_ty.clone()),
+                    GenericArg::Type(u32_ty.clone()),
+                    GenericArg::Type(u64_ty.clone()),
+                ])
+                .clone();
+
+            generator.build(&[GenericArg::Type(enum_ty)])
         };
     }
 
     #[test]
     fn enum_init() {
-        run_program_assert_output(
-            &ENUM_INIT,
-            "run_test",
-            &[],
-            jit_struct!(
-                jit_enum!(0, Felt::from(-1).into()),
-                jit_enum!(0, Felt::from(5678).into()),
-                jit_enum!(1, 90u8.into()),
-                jit_enum!(2, 9012u16.into()),
-                jit_enum!(3, 34567890u32.into()),
-                jit_enum!(4, 1234567890123456u64.into()),
-            ),
-        );
+        let result = run_sierra_program(
+            &ENUM_INIT.lock().unwrap()(0),
+            &[Value::Felt252((-1).into())],
+        )
+        .return_value;
+
+        assert_eq!(jit_enum!(0, Felt::from(-1).into()), result);
+
+        let result = run_sierra_program(
+            &ENUM_INIT.lock().unwrap()(0),
+            &[Value::Felt252(5678.into())],
+        )
+        .return_value;
+
+        assert_eq!(jit_enum!(0, Felt::from(5678).into()), result);
+
+        let result = run_sierra_program(&ENUM_INIT.lock().unwrap()(1), &[90u8.into()]).return_value;
+
+        assert_eq!(jit_enum!(1, Value::Uint8(90u8)), result);
+
+        let result =
+            run_sierra_program(&ENUM_INIT.lock().unwrap()(2), &[9012u16.into()]).return_value;
+
+        assert_eq!(jit_enum!(2, Value::Uint16(9012u16)), result);
+
+        let result =
+            run_sierra_program(&ENUM_INIT.lock().unwrap()(3), &[34567890u32.into()]).return_value;
+
+        assert_eq!(jit_enum!(3, Value::Uint32(34567890u32)), result);
+
+        let result =
+            run_sierra_program(&ENUM_INIT.lock().unwrap()(4), &[1234567890123456u64.into()])
+                .return_value;
+
+        assert_eq!(jit_enum!(4, Value::Uint64(1234567890123456u64)), result);
     }
 
     #[test]
     fn enum_match() {
-        run_program_assert_output(&ENUM_MATCH, "match_a", &[], Felt::from(5).into());
-        run_program_assert_output(&ENUM_MATCH, "match_b", &[], 5u8.into());
+        let result = run_sierra_program(&ENUM_INIT.lock().unwrap()(0), &[Value::Felt252(5.into())])
+            .return_value;
+        let result = run_sierra_program(&ENUM_MATCH, &[result]).return_value;
+
+        assert_eq!(jit_enum!(0, Value::Felt252(5.into())), result);
+
+        let result =
+            run_sierra_program(&ENUM_INIT.lock().unwrap()(1), &[Value::Uint8(5)]).return_value;
+        let result = run_sierra_program(&ENUM_MATCH, &[result]).return_value;
+
+        assert_eq!(jit_enum!(1, Value::Uint8(5u8)), result);
     }
 
     #[test]
     fn compile_enum_match_without_variants() {
-        let (_, program) = load_cairo! {
-            enum MyEnum {}
+        let program = {
+            let mut generator = SierraGenerator::<EnumMatchLibfunc>::default();
 
-            fn main(value: MyEnum) {
-                match value {}
-            }
+            let enum_ty = generator
+                .push_type_declaration::<EnumType>(&[GenericArg::UserType(
+                    UserTypeId::from_string("MyEnum"),
+                )])
+                .clone();
+
+            generator.build(&[GenericArg::Type(enum_ty)])
         };
 
         let native_context = NativeContext::new();

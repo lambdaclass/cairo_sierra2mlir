@@ -97,29 +97,33 @@ pub fn build_pedersen<'ctx>(
 
 #[cfg(test)]
 mod test {
-    use crate::utils::test::{load_cairo, run_program_assert_output};
+    use crate::{
+        utils::{sierra_gen::SierraGenerator, test::run_sierra_program},
+        Value,
+    };
 
+    use cairo_lang_sierra::extensions::pedersen::PedersenHashLibfunc;
     use starknet_types_core::felt::Felt;
 
     #[test]
     fn run_pedersen() {
-        let program = load_cairo!(
-            use core::pedersen::pedersen;
+        let program = {
+            let generator = SierraGenerator::<PedersenHashLibfunc>::default();
 
-            fn run_test(a: felt252, b: felt252) -> felt252 {
-                pedersen(a, b)
-            }
-        );
+            generator.build(&[])
+        };
 
-        run_program_assert_output(
-            &program,
-            "run_test",
-            &[Felt::from(2).into(), Felt::from(4).into()],
-            Felt::from_dec_str(
-                "2178161520066714737684323463974044933282313051386084149915030950231093462467",
-            )
-            .unwrap()
-            .into(),
+        let result = run_sierra_program(&program, &[Felt::from(2).into(), Felt::from(4).into()])
+            .return_value;
+
+        assert_eq!(
+            Value::Felt252(
+                Felt::from_dec_str(
+                    "2178161520066714737684323463974044933282313051386084149915030950231093462467",
+                )
+                .unwrap()
+            ),
+            result
         );
     }
 }
